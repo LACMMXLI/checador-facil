@@ -128,6 +128,7 @@ export class OwnerController {
     const b = employeeCreateS.parse(body);
     const branch = await this.prisma.branch.findFirst({ where: { id: b.branchId, tenantId: ctx.tenantId! } });
     if (!branch) throw badRequest('BRANCH', 'Elige una sucursal válida.');
+    if (b.schedule?.length) await this.billing.assertFeature(ctx.tenantId!, 'canSchedules', 'Los horarios y turnos nocturnos están disponibles en el plan Avanzado.');
     await this.billing.assertEmployeeLimit(ctx.tenantId!);
     const number = b.employeeNumber ?? String((await this.prisma.employee.count({ where: { tenantId: ctx.tenantId! } })) + 1).padStart(3, '0');
     const dupNum = await this.prisma.employee.findFirst({ where: { tenantId: ctx.tenantId!, employeeNumber: number } });
@@ -204,6 +205,7 @@ export class OwnerController {
   @Access('USER', { writable: true })
   async setSchedule(@Ctx() ctx: RequestCtx, @Param('id') id: string, @Body() body: unknown) {
     uuidS.parse(id);
+    await this.billing.assertFeature(ctx.tenantId!, 'canSchedules', 'Los horarios y turnos nocturnos están disponibles en el plan Avanzado.');
     const schedule = scheduleS.parse((body as { schedule?: unknown })?.schedule);
     const cur = await this.prisma.employee.findFirst({ where: { id, tenantId: ctx.tenantId! } });
     if (!cur) throw notFound('No encontramos al empleado.');
@@ -389,7 +391,7 @@ export class OwnerController {
     ]);
     return {
       status: st.status, operational: st.operational, periodEnd: st.periodEnd, daysLeft: st.daysLeft, graceDays: st.sub.graceDays,
-      plan: { name: st.plan.name, priceMonthlyCents: st.plan.priceMonthlyCents, currency: st.plan.currency, maxEmployees: st.plan.maxEmployees, maxBranches: st.plan.maxBranches, historyDays: st.plan.historyDays, canExport: st.plan.canExport },
+      plan: { name: st.plan.name, priceMonthlyCents: st.plan.priceMonthlyCents, currency: st.plan.currency, maxEmployees: st.plan.maxEmployees, maxBranches: st.plan.maxBranches, historyDays: st.plan.historyDays, canExport: st.plan.canExport, canSchedules: st.plan.canSchedules, canLateControl: st.plan.canLateControl },
       usage: { employees, branches },
       paymentInstructions: settings.payment_instructions, contactEmail: settings.contact_email, contactWhatsapp: settings.contact_whatsapp,
       payments: payments.map((p) => ({ id: p.id, amountCents: p.amountCents, currency: p.currency, months: p.months, reference: p.reference, status: p.status, reportedAt: p.reportedAt, reviewedAt: p.reviewedAt })),

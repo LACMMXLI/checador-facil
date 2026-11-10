@@ -178,7 +178,7 @@ export class AuthController {
       role: ctx.role,
       subscription: {
         status: st.status, operational: st.operational, planName: st.plan.name, periodEnd: st.periodEnd, daysLeft: st.daysLeft,
-        plan: { maxEmployees: st.plan.maxEmployees, maxBranches: st.plan.maxBranches, historyDays: st.plan.historyDays, canExport: st.plan.canExport },
+        plan: { maxEmployees: st.plan.maxEmployees, maxBranches: st.plan.maxBranches, historyDays: st.plan.historyDays, canExport: st.plan.canExport, canSchedules: st.plan.canSchedules, canLateControl: st.plan.canLateControl },
       },
     };
   }

@@ -231,7 +231,7 @@ describe('PIN compartido', () => {
 describe('motor de asistencia (servicio)', () => {
   const T = (iso: string) => new Date(iso);
   async function setup(label: string) {
-    const o = await registerOwner(ctx, label);
+    const o = await registerOwner(ctx, label, 'avanzado');
     await noGap(o.tenantId);
     const emp = await createEmployee(o, 'Nocturno', {
       schedule: [1, 2].map((d) => ({ dayOfWeek: d, isRest: false, startMinutes: 22 * 60, endMinutes: 6 * 60 })),
@@ -521,6 +521,48 @@ describe('diferencias entre planes', () => {
     expect((await admin.patch(`/platform/tenants/${o.tenantId}/plan`, { planId: avz.id })).status).toBe(200);
     expect((await o.c.get(`/app/attendance?from=${from}&to=${to}`)).body.rows).toHaveLength(1);
     expect((await o.c.get('/app/attendance/export.csv?range=month')).status).toBe(200);
+  });
+});
+
+describe('horarios y retardos sólo en Avanzado', () => {
+  const sched = [{ dayOfWeek: 1, isRest: false, startMinutes: 22 * 60, endMinutes: 6 * 60 }];
+
+  it('Básico no puede configurar horarios ni turnos nocturnos', async () => {
+    const o = await registerOwner(ctx, 'bashor');
+    const emp = await createEmployee(o, 'Sin horario');
+    const put = await o.c.put(`/app/employees/${emp.id}/schedule`, { schedule: sched });
+    expect(put.status).toBe(403);
+    expect(put.body.error.code).toBe('PLAN_FEATURE');
+    const create = await o.c.post('/app/employees', { name: 'Con horario', branchId: emp.branchId, schedule: sched });
+    expect(create.status).toBe(403);
+    expect(await ctx.prisma.workSchedule.count({ where: { tenantId: o.tenantId } })).toBe(0);
+  });
+
+  it('Básico no calcula retardos aunque existan horarios de un plan anterior', async () => {
+    const o = await registerOwner(ctx, 'basret');
+    await noGap(o.tenantId);
+    const emp = await createEmployee(o, 'Tarde');
+    // horario cargado directamente (como si viniera de un plan Avanzado anterior)
+    await ctx.prisma.workSchedule.create({ data: { tenantId: o.tenantId, employeeId: emp.id, dayOfWeek: 2, isRest: false, startMinutes: 22 * 60, endMinutes: 6 * 60 } });
+    const svc = ctx.app.get(AttendanceService);
+    await svc.punch({ tenantId: o.tenantId, employeeId: emp.id, source: 'PIN', now: new Date('2026-11-11T05:30:00Z') }); // martes 23:30 CDMX, 90 min tarde
+    const s = await ctx.prisma.workSession.findFirstOrThrow({ where: { tenantId: o.tenantId } });
+    expect(s.lateMinutes).toBe(0);
+    expect(s.scheduledStart).toBeNull();
+    const list = (await o.c.get('/app/attendance?from=2026-11-01&to=2027-12-31')).body;
+    expect(list.rows.every((r: { lateMinutes: number }) => r.lateMinutes === 0)).toBe(true);
+    expect((await o.c.get('/app/dashboard')).body.lates).toBe(0);
+  });
+
+  it('Avanzado sí configura horarios y calcula retardos', async () => {
+    const o = await registerOwner(ctx, 'avzhor', 'avanzado');
+    await noGap(o.tenantId);
+    const emp = await createEmployee(o, 'Puntual');
+    expect((await o.c.put(`/app/employees/${emp.id}/schedule`, { schedule: [{ dayOfWeek: 2, isRest: false, startMinutes: 22 * 60, endMinutes: 6 * 60 }] })).status).toBe(200);
+    const svc = ctx.app.get(AttendanceService);
+    await svc.punch({ tenantId: o.tenantId, employeeId: emp.id, source: 'PIN', now: new Date('2026-11-11T05:30:00Z') });
+    const s = await ctx.prisma.workSession.findFirstOrThrow({ where: { tenantId: o.tenantId } });
+    expect(s.lateMinutes).toBe(90);
   });
 });
 

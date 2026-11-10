@@ -14,7 +14,7 @@ export interface SessionRow {
 
 const toInput = (s: string | null) => (s ? s.replace(' ', 'T') : '');
 
-export function SessionsList({ rows, onChanged, writable = true, showEmployee = true }: { rows: SessionRow[]; onChanged: () => void; writable?: boolean; showEmployee?: boolean }) {
+export function SessionsList({ rows, onChanged, writable = true, showEmployee = true, showLate = true }: { rows: SessionRow[]; onChanged: () => void; writable?: boolean; showEmployee?: boolean; showLate?: boolean }) {
   const [editing, setEditing] = useState<SessionRow | null>(null);
   return (
     <>
@@ -24,7 +24,7 @@ export function SessionsList({ rows, onChanged, writable = true, showEmployee = 
           <thead className="bg-ink-50 text-xs uppercase tracking-wide text-ink-500">
             <tr>
               <th className="px-4 py-3">Fecha</th>{showEmployee && <th className="px-4 py-3">Empleado</th>}<th className="px-4 py-3">Entrada</th><th className="px-4 py-3">Salida</th>
-              <th className="px-4 py-3">Horas</th><th className="px-4 py-3">Retardo</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3" />
+              <th className="px-4 py-3">Horas</th>{showLate && <th className="px-4 py-3">Retardo</th>}<th className="px-4 py-3">Estado</th><th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-100">
@@ -37,8 +37,8 @@ export function SessionsList({ rows, onChanged, writable = true, showEmployee = 
                   <td className="whitespace-nowrap px-4 py-3 tabular-nums">{r.startLocal.slice(11)}</td>
                   <td className="whitespace-nowrap px-4 py-3 tabular-nums">{r.endLocal ? r.endLocal.slice(11) : '—'}</td>
                   <td className="whitespace-nowrap px-4 py-3 tabular-nums">{r.endLocal ? hhmm(r.workedMinutes) : '—'}</td>
-                  <td className="whitespace-nowrap px-4 py-3">{r.lateMinutes > 0 ? <Badge tone="amber">{r.lateMinutes} min</Badge> : <span className="text-ink-400">—</span>}</td>
-                  <td className="px-4 py-3"><div className="flex flex-wrap items-center gap-1"><Badge tone={st.tone}>{st.label}</Badge>{r.earlyLeaveMinutes > 0 && <Badge tone="amber">Salió {r.earlyLeaveMinutes} min antes</Badge>}{r.corrected && <Badge tone="gray">Corregida</Badge>}</div></td>
+                  {showLate && <td className="whitespace-nowrap px-4 py-3">{r.lateMinutes > 0 ? <Badge tone="amber">{r.lateMinutes} min</Badge> : <span className="text-ink-400">—</span>}</td>}
+                  <td className="px-4 py-3"><div className="flex flex-wrap items-center gap-1"><Badge tone={st.tone}>{st.label}</Badge>{showLate && r.earlyLeaveMinutes > 0 && <Badge tone="amber">Salió {r.earlyLeaveMinutes} min antes</Badge>}{r.corrected && <Badge tone="gray">Corregida</Badge>}</div></td>
                   <td className="px-4 py-3 text-right"><Button size="sm" variant="ghost" onClick={() => setEditing(r)}><Pencil className="h-4 w-4" />{writable ? 'Corregir' : 'Ver'}</Button></td>
                 </tr>
               );
@@ -62,7 +62,7 @@ export function SessionsList({ rows, onChanged, writable = true, showEmployee = 
                 ))}
               </div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap gap-1">{r.lateMinutes > 0 && <Badge tone="amber">Retardo {r.lateMinutes} min</Badge>}{r.earlyLeaveMinutes > 0 && <Badge tone="amber">Salió {r.earlyLeaveMinutes} min antes</Badge>}{r.corrected && <Badge>Corregida</Badge>}</div>
+                <div className="flex flex-wrap gap-1">{showLate && r.lateMinutes > 0 && <Badge tone="amber">Retardo {r.lateMinutes} min</Badge>}{showLate && r.earlyLeaveMinutes > 0 && <Badge tone="amber">Salió {r.earlyLeaveMinutes} min antes</Badge>}{r.corrected && <Badge>Corregida</Badge>}</div>
                 <Button size="sm" variant="soft" onClick={() => setEditing(r)}><Pencil className="h-4 w-4" />{writable ? 'Corregir' : 'Ver'}</Button>
               </div>
             </li>

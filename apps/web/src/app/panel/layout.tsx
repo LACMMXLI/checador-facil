@@ -12,7 +12,7 @@ export interface Me {
   user: { id: string; name: string; email: string }; tenant: { id: string; name: string }; role: string;
   subscription: {
     status: string; operational: boolean; planName: string; periodEnd: string | null; daysLeft: number | null;
-    plan: { maxEmployees: number; maxBranches: number; historyDays: number; canExport: boolean };
+    plan: { maxEmployees: number; maxBranches: number; historyDays: number; canExport: boolean; canSchedules: boolean; canLateControl: boolean };
   };
 }
 

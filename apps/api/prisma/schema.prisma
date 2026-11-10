@@ -346,6 +346,10 @@ model Plan {
   historyDays      Int            @default(365)
   // Si el plan permite exportar reportes a Excel (CSV).
   canExport        Boolean        @default(true)
+  // Horarios por día, descansos y turnos nocturnos.
+  canSchedules     Boolean        @default(true)
+  // Retardos, salidas anticipadas y tolerancias (requiere horarios para tener sentido).
+  canLateControl   Boolean        @default(true)
   features         String[]
   highlighted      Boolean        @default(false)
   active           Boolean        @default(true)

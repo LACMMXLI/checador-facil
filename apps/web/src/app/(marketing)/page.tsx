@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import {
-  ArrowRight, BarChart3, CalendarClock, Check, ChevronDown, Clock, Minus, QrCode, ShieldCheck, Smartphone, Sparkles, Store, Tablet, UserPlus, Wallet, Wifi,
+  ArrowRight, BarChart3, CalendarClock, Check, ChevronDown, Clock, QrCode, ShieldCheck, Smartphone, Sparkles, Store, Tablet, UserPlus, Wallet, Wifi,
 } from 'lucide-react';
 import { buttonVariants, cn } from '@/components/ui/styles';
 import { DemoQr, MockDashboard, ProductShowcase } from '@/components/marketing/showcase';
-import { getPublicPlans, type PublicPlan } from '@/lib/public';
-import { money } from '@/lib/format';
+import { PricingSection } from '@/components/marketing/pricing';
+import { formatHistory } from '@/lib/format';
+import { getPublicPlans } from '@/lib/public';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -18,8 +19,8 @@ const BENEFITS = [
   { icon: Wallet, title: 'Ahorra en equipo', text: 'Usa la tableta o el celular que ya tienes. Cero relojes costosos y cero mantenimiento.' },
   { icon: Smartphone, title: 'Funciona en cualquier celular', text: 'Android, iPhone, tabletas y computadoras. Todo desde el navegador, sin instalar aplicaciones.' },
   { icon: QrCode, title: 'Un QR que cambia solo', text: 'El código en pantalla cambia cada 30 segundos. Tu equipo lo escanea con su celular y listo.' },
-  { icon: Clock, title: 'Retardos al instante', text: 'Define tu tolerancia y ve quién llegó tarde y cuántos minutos, sin revisar listas ni hojas.' },
-  { icon: CalendarClock, title: 'Horarios y turnos', text: 'Horarios por día, descansos y hasta turnos nocturnos que cruzan la medianoche.' },
+  { icon: Clock, title: 'Retardos al instante', text: 'Con el plan Avanzado defines tu tolerancia y ves quién llegó tarde y cuántos minutos, sin revisar listas.' },
+  { icon: CalendarClock, title: 'Horarios y turnos', text: 'Con el plan Avanzado: horarios por día, descansos y turnos nocturnos que cruzan la medianoche.' },
   { icon: BarChart3, title: 'Horas trabajadas, claras', text: 'Cada jornada con su entrada, salida y horas, por día, semana, quincena o mes.' },
   { icon: ShieldCheck, title: 'Correcciones con respaldo', text: 'Si alguien olvida checar, lo corriges con un motivo y queda registro de quién cambió qué.' },
   { icon: Store, title: 'Todos tus locales en un panel', text: 'Con el plan Avanzado administras varias sucursales desde la misma cuenta.' },
@@ -27,117 +28,11 @@ const BENEFITS = [
 
 const STEPS = [
   { icon: UserPlus, title: 'Registra tu negocio', text: 'Crea tu cuenta en un minuto. Sin tarjeta para empezar tu prueba gratis.' },
-  { icon: Store, title: 'Agrega a tus empleados', text: 'Nombre, sucursal y horario. Cada quien recibe su PIN y, si quieres, su acceso personal.' },
+  { icon: Store, title: 'Agrega a tus empleados', text: 'Nombre y sucursal (y su horario, con el plan Avanzado). Cada quien recibe su PIN y, si quieres, su acceso personal.' },
   { icon: Tablet, title: 'Activa tu checador QR', text: 'Abre el enlace en una tableta, ingresa el código temporal y déjala en el local.' },
   { icon: QrCode, title: 'Tu equipo empieza a checar', text: 'Escanean el QR o usan el PIN compartido. Entrada y salida se alternan solas.' },
   { icon: BarChart3, title: 'Tú lo ves todo en vivo', text: 'Quién está trabajando, quién llegó tarde y las horas de cada quien, estés donde estés.' },
 ];
-
-/** 7 → "7 días"; 365 → "12 meses". */
-function formatHistory(days: number) {
-  if (days >= 60) return `${Math.round(days / 30.4)} meses`;
-  return `${days} días`;
-}
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-function planLines(p: PublicPlan) {
-  return [
-    { ok: true, text: `Hasta ${p.maxEmployees} empleados` },
-    { ok: true, text: plural(p.maxBranches, 'sucursal', 'sucursales') },
-    { ok: true, text: `Reportes e historial de ${p.historyDays >= 60 ? 'hasta ' : 'los últimos '}${formatHistory(p.historyDays)}` },
-    { ok: p.canExport, text: p.canExport ? 'Exporta tus reportes a Excel' : 'Sin exportación a Excel' },
-    ...p.features.map((f) => ({ ok: true, text: f })),
-  ];
-}
-
-function Pricing({ plans }: { plans: PublicPlan[] | null }) {
-  if (!plans?.length) {
-    return <p className="mx-auto mt-10 max-w-md text-center text-ink-500">En este momento no podemos mostrar los precios. <Link href="/registro" className="font-semibold text-brand-700 underline">Crea tu cuenta</Link> para verlos.</p>;
-  }
-  const cheapest = plans.reduce((a, b) => (b.priceMonthlyCents < a.priceMonthlyCents ? b : a));
-  const rows: [string, (p: PublicPlan) => string][] = [
-    ['Precio mensual', (p) => money(p.priceMonthlyCents, p.currency)],
-    ['Empleados', (p) => `Hasta ${p.maxEmployees}`],
-    ['Sucursales', (p) => String(p.maxBranches)],
-    ['Historial de reportes', (p) => formatHistory(p.historyDays)],
-    ['Exportar a Excel', (p) => (p.canExport ? 'yes' : 'no')],
-    ['QR dinámico y PIN compartido', () => 'yes'],
-    ['Horarios, turnos nocturnos y retardos', () => 'yes'],
-    ['Correcciones con bitácora', () => 'yes'],
-  ];
-  return (
-    <>
-      <div className={cn('mx-auto mt-14 grid max-w-4xl items-stretch gap-6', plans.length > 1 && 'md:grid-cols-2')}>
-        {plans.map((p) => {
-          const hl = p.highlighted;
-          const diff = p.priceMonthlyCents - cheapest.priceMonthlyCents;
-          const ratio = Math.round(p.maxEmployees / cheapest.maxEmployees);
-          return (
-            <div key={p.code} className={cn('relative flex flex-col rounded-3xl p-7 sm:p-8', hl
-              ? 'bg-ink-900 text-white shadow-2xl ring-2 ring-brand-500 md:-my-4 md:py-11'
-              : 'bg-white/70 text-ink-700 shadow-soft ring-1 ring-ink-100')}>
-              {hl && <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-brand-500 to-fuchsia-500 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-glow">Recomendado</span>}
-              <h3 className="font-display text-xl font-extrabold">{p.name}</h3>
-              <p className={cn('mt-1 text-sm', hl ? 'text-ink-300' : 'text-ink-500')}>{p.description}</p>
-              <p className="mt-5 flex items-baseline gap-1.5">
-                <span className={cn('font-display font-extrabold tracking-tight', hl ? 'text-6xl' : 'text-5xl')}>{money(p.priceMonthlyCents, p.currency)}</span>
-                <span className={cn('text-sm', hl ? 'text-ink-300' : 'text-ink-500')}>{p.currency} / mes</span>
-              </p>
-              {hl && diff > 0 && (
-                <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-sm font-semibold text-mint-400">
-                  Solo {money(diff, p.currency)} más al mes{ratio >= 2 ? ` y tienes ${ratio} veces más empleados` : ''}, más sucursales, historial amplio y Excel.
-                </p>
-              )}
-              <ul className="mt-6 flex-1 space-y-3">
-                {planLines(p).map((l) => (
-                  <li key={l.text} className={cn('flex items-start gap-2.5 text-[15px]', !l.ok && 'opacity-60')}>
-                    {l.ok
-                      ? <Check className={cn('mt-0.5 h-5 w-5 shrink-0', hl ? 'text-mint-400' : 'text-mint-600')} />
-                      : <Minus className="mt-0.5 h-5 w-5 shrink-0 text-ink-400" />}
-                    <span className={cn(!l.ok && 'line-through decoration-ink-300')}>{l.text}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link href={`/registro?plan=${p.code}`} className={cn(buttonVariants({ variant: hl ? 'primary' : 'outline', size: 'lg' }), 'mt-8 w-full', hl && 'text-lg')}>
-                {hl ? `Probar ${p.name} gratis` : `Probar ${p.name}`}
-              </Link>
-              {p.trialDays > 0 && <p className={cn('mt-3 text-center text-xs', hl ? 'text-ink-400' : 'text-ink-500')}>{p.trialDays} días de prueba gratis · sin tarjeta</p>}
-            </div>
-          );
-        })}
-      </div>
-
-      {plans.length > 1 && (
-        <div className="mx-auto mt-16 max-w-4xl overflow-x-auto rounded-2xl bg-white shadow-soft ring-1 ring-ink-100">
-          <table className="w-full min-w-[520px] text-left text-[15px]">
-            <caption className="sr-only">Comparación de planes</caption>
-            <thead>
-              <tr className="border-b border-ink-100">
-                <th className="px-5 py-4 font-display text-base font-bold">Compara los planes</th>
-                {plans.map((p) => <th key={p.code} className={cn('px-5 py-4 text-center font-display text-base font-extrabold', p.highlighted && 'bg-brand-50 text-brand-700')}>{p.name}</th>)}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink-100">
-              {rows.map(([label, fn]) => (
-                <tr key={label}>
-                  <td className="px-5 py-3.5 font-medium text-ink-700">{label}</td>
-                  {plans.map((p) => {
-                    const v = fn(p);
-                    return (
-                      <td key={p.code} className={cn('px-5 py-3.5 text-center font-semibold', p.highlighted && 'bg-brand-50/60')}>
-                        {v === 'yes' ? <Check className="mx-auto h-5 w-5 text-mint-600" aria-label="Incluido" /> : v === 'no' ? <Minus className="mx-auto h-5 w-5 text-ink-300" aria-label="No incluido" /> : v}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
-  );
-}
 
 export default async function Home() {
   const plans = await getPublicPlans();
@@ -152,7 +47,7 @@ export default async function Home() {
     { q: '¿Qué pasa si un empleado no tiene celular?', a: 'Puede checar con su PIN de 6 dígitos en el dispositivo compartido del local. Tú decides si tu sucursal usa sólo QR, sólo PIN o ambos.' },
     { q: '¿Cómo funcionan los códigos QR?', a: 'La pantalla del local muestra un código que cambia cada 30 segundos. El empleado inicia sesión en su celular, escanea el código y el sistema valida todo en el servidor. Ayuda a evitar checadas desde otro lugar, pero no es infalible: una foto del código puede compartirse mientras siga vigente.' },
     { q: `¿Qué incluye la prueba gratis de ${trial} días?`, a: `Usas el plan que elijas con todas sus funciones durante ${trial} días, sin dar tarjeta. Si no continúas, tu cuenta se pausa y no borramos tus datos.` },
-    { q: '¿Cuál plan me conviene?', a: basic && top ? `Si tienes un solo local y hasta ${basic.maxEmployees} empleados, el ${basic.name} es suficiente. Si tu equipo es más grande, tienes varias sucursales o necesitas revisar ${formatHistory(top.historyDays)} de historial y exportar a Excel, elige el ${top.name}.` : 'Elige según el número de empleados y sucursales que tengas.' },
+    { q: '¿Cuál plan me conviene?', a: basic && top ? `Si tienes un solo local y hasta ${basic.maxEmployees} empleados, el ${basic.name} es suficiente. Si necesitas horarios y turnos nocturnos, control de retardos, un equipo más grande, varias sucursales, ${formatHistory(top.historyDays)} de historial o exportar a Excel, elige el ${top.name}.` : 'Elige según el número de empleados y sucursales que tengas.' },
     { q: '¿Puedo cambiar de plan después?', a: 'Sí. Escríbenos y lo cambiamos. Si subes de plan recuperas al instante el historial y la exportación, porque tus datos nunca se borran.' },
     { q: '¿Puedo cancelar mi suscripción?', a: 'Sí. No hay plazo forzoso. Si no renuevas, tu cuenta se suspende pero no borramos tus datos: podrás consultarlos y exportarlos.' },
     { q: '¿Puedo consultar asistencias anteriores?', a: basic && top ? `Sí. Se guardan todas. Con el plan ${basic.name} consultas los últimos ${formatHistory(basic.historyDays)} y con el ${top.name} hasta ${formatHistory(top.historyDays)}, por día, semana, quincena, mes o un rango.` : 'Sí. El historial se conserva y puedes filtrarlo por día, semana, quincena, mes o un rango.' },
@@ -274,7 +169,7 @@ export default async function Home() {
             <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Elige tu plan y empieza hoy</h2>
             <p className="mt-4 text-lg text-ink-600">{trial} días de prueba gratis. Sin tarjeta. Cancela cuando quieras.</p>
           </div>
-          <Pricing plans={plans} />
+          <PricingSection plans={plans} />
         </div>
       </section>
 

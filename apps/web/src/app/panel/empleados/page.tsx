@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { ChevronRight, Plus, KeyRound, Smartphone } from 'lucide-react';
 import { api, errMsg, fetcher } from '@/lib/api';
+import type { Me } from '../layout';
 import { Badge, Button, Empty, ErrorBox, Field, Input, Modal, PageLoading, Select, useToast } from '@/components/ui';
 
 interface Emp { id: string; name: string; employeeNumber: string; active: boolean; branch: { id: string; name: string }; hasSchedule: boolean; account: { email: string; activated: boolean } | null }
@@ -16,6 +17,7 @@ export default function Employees() {
   const [all, setAll] = useState(false);
   const { data, error, mutate } = useSWR<Emp[]>(`/app/employees${all ? '?all=1' : ''}`, fetcher);
   const { data: branches } = useSWR<Branch[]>('/app/branches', fetcher);
+  const { data: me } = useSWR<Me>('/auth/me', fetcher);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', branchId: '', employeeNumber: '', phone: '' });
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
@@ -54,7 +56,7 @@ export default function Employees() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{e.name} <span className="font-normal text-ink-400">#{e.employeeNumber}</span></p>
                   <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-500">{e.branch.name}
-                    {!e.hasSchedule && <span className="text-amber-600">· Sin horario</span>}
+                    {!e.hasSchedule && me?.subscription.plan.canSchedules && <span className="text-amber-600">· Sin horario</span>}
                     {e.account && <span className="inline-flex items-center gap-1"><Smartphone className="h-3.5 w-3.5" />{e.account.activated ? 'Cuenta activa' : 'Invitación pendiente'}</span>}
                   </p>
                 </div>

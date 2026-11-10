@@ -28,6 +28,7 @@ function Home() {
   const sp = useSearchParams();
   const { data, error, mutate } = useSWR<Dash>('/app/dashboard', fetcher, { refreshInterval: 20_000 });
   const { data: me } = useSWR<Me>('/auth/me', fetcher);
+  const late = me?.subscription.plan.canLateControl ?? false;
   if (error) return <ErrorBox message="No pudimos cargar tu tablero." onRetry={() => mutate()} />;
   if (!data) return <PageLoading />;
 
@@ -49,11 +50,11 @@ function Home() {
         </Card>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-3 ${late ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
         <Stat icon={Users} label="Empleados activos" value={data.activeEmployees} tone="bg-brand-50 text-brand-600" />
         <Stat icon={UserCheck} label="Trabajando ahora" value={data.working} tone="bg-mint-50 text-mint-600" />
         <Stat icon={LogIn} label="Entradas de hoy" value={data.entriesToday} tone="bg-sky-50 text-sky-600" />
-        <Stat icon={Clock} label="Retardos hoy" value={data.lates} tone="bg-amber-50 text-amber-600" />
+        {late && <Stat icon={Clock} label="Retardos hoy" value={data.lates} tone="bg-amber-50 text-amber-600" />}
       </div>
 
       {data.incidents > 0 && (

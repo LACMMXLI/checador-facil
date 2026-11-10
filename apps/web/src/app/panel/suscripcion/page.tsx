@@ -9,7 +9,7 @@ import { SUB_STATUS, dateEs, money } from '@/lib/format';
 
 interface Sub {
   status: string; operational: boolean; periodEnd: string | null; daysLeft: number | null; graceDays: number;
-  plan: { name: string; priceMonthlyCents: number; currency: string; maxEmployees: number; maxBranches: number; historyDays: number; canExport: boolean };
+  plan: { name: string; priceMonthlyCents: number; currency: string; maxEmployees: number; maxBranches: number; historyDays: number; canExport: boolean; canSchedules: boolean; canLateControl: boolean };
   usage: { employees: number; branches: number };
   paymentInstructions: string; contactEmail: string; contactWhatsapp: string;
   payments: { id: string; amountCents: number; currency: string; months: number; reference: string | null; status: 'PENDING' | 'APPROVED' | 'REJECTED'; reportedAt: string }[];
@@ -51,10 +51,12 @@ export default function Subscription() {
           <div><dt className="text-sm text-ink-500">Empleados activos</dt><dd className="font-semibold">{data.usage.employees} de {data.plan.maxEmployees}</dd></div>
           <div><dt className="text-sm text-ink-500">Sucursales</dt><dd className="font-semibold">{data.usage.branches} de {data.plan.maxBranches}</dd></div>
           <div><dt className="text-sm text-ink-500">Historial de reportes</dt><dd className="font-semibold">Últimos {data.plan.historyDays} días</dd></div>
+          <div><dt className="text-sm text-ink-500">Horarios y turnos nocturnos</dt><dd className="font-semibold">{data.plan.canSchedules ? 'Incluido' : 'No incluido en tu plan'}</dd></div>
+          <div><dt className="text-sm text-ink-500">Control de retardos</dt><dd className="font-semibold">{data.plan.canLateControl ? 'Incluido' : 'No incluido en tu plan'}</dd></div>
           <div><dt className="text-sm text-ink-500">Exportar a Excel</dt><dd className="font-semibold">{data.plan.canExport ? 'Incluido' : 'No incluido en tu plan'}</dd></div>
         </dl>
-        {(!data.plan.canExport || data.plan.historyDays < 60) && (
-          <p className="mt-4 rounded-xl bg-brand-50 p-3 text-sm text-brand-900">¿Necesitas más empleados, más sucursales, 12 meses de historial o exportar a Excel? Pide el cambio al plan Avanzado con el contacto de abajo: tus datos se conservan y recuperas todo al instante.</p>
+        {(!data.plan.canExport || !data.plan.canSchedules || data.plan.historyDays < 60) && (
+          <p className="mt-4 rounded-xl bg-brand-50 p-3 text-sm text-brand-900">¿Necesitas horarios y turnos nocturnos, control de retardos, más empleados, más sucursales, 12 meses de historial o exportar a Excel? Pide el cambio al plan Avanzado con el contacto de abajo: tus datos se conservan y recuperas todo al instante.</p>
         )}
         {!data.operational && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">Tu servicio está suspendido. Tus datos están a salvo: puedes consultarlos y exportarlos. Para volver a checar y editar, realiza tu pago y repórtalo aquí.</p>}
         {data.status === 'GRACE_PERIOD' && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Tu periodo venció; tienes {data.graceDays} día(s) de gracia antes de la suspensión.</p>}

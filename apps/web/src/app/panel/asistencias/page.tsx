@@ -36,6 +36,7 @@ function Attendance() {
   const { data: branches } = useSWR<Branch[]>('/app/branches', fetcher);
   const { data: me } = useSWR<Me>('/auth/me', fetcher);
   const writable = me?.subscription.operational ?? true;
+  const late = me?.subscription.plan.canLateControl ?? false;
 
   return (
     <div className="space-y-5">
@@ -70,13 +71,13 @@ function Attendance() {
       {data && (data.limited || data.plan.historyDays < 60 || !data.plan.canExport) && (
         <Link href="/panel/suscripcion" className="flex items-start gap-3 rounded-2xl border border-brand-200 bg-brand-50 p-4 text-brand-900 transition hover:bg-brand-100">
           <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
-          <span className="text-sm"><strong>Tu plan {me?.subscription.planName ?? ''} muestra los últimos {data.plan.historyDays} días{!data.plan.canExport ? ' y no incluye exportación a Excel' : ''}.</strong> Con el plan Avanzado ves hasta 12 meses y descargas tus reportes. Tus registros anteriores no se pierden. <u className="font-semibold">Ver planes</u></span>
+          <span className="text-sm"><strong>Tu plan {me?.subscription.planName ?? ''} muestra los últimos {data.plan.historyDays} días{!data.plan.canExport ? ' y no incluye exportación a Excel' : ''}.</strong> Con el plan Avanzado ves hasta 12 meses, descargas tus reportes y controlas retardos. Tus registros anteriores no se pierden. <u className="font-semibold">Ver planes</u></span>
         </Link>
       )}
 
       {data && (
-        <div className="grid grid-cols-3 gap-3">
-          {[['Jornadas', String(data.rows.length)], ['Horas trabajadas', hhmm(data.totals.workedMinutes)], ['Retardos', String(data.totals.late)]].map(([l, v]) => (
+        <div className={`grid gap-3 ${late ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          {[['Jornadas', String(data.rows.length)], ['Horas trabajadas', hhmm(data.totals.workedMinutes)], ...(late ? [['Retardos', String(data.totals.late)]] : [])].map(([l, v]) => (
             <Card key={l} className="p-4 text-center"><p className="font-display text-2xl font-extrabold tabular-nums">{v}</p><p className="text-xs font-medium text-ink-500 sm:text-sm">{l}</p></Card>
           ))}
         </div>
@@ -85,7 +86,7 @@ function Attendance() {
       {error ? <ErrorBox message="No pudimos cargar las asistencias." onRetry={() => mutate()} />
         : !data || (isLoading && !data) ? <PageLoading />
         : data.rows.length === 0 ? <Empty title="Sin registros en este periodo">Prueba con otro rango o quita los filtros.</Empty>
-        : <SessionsList rows={data.rows} writable={writable} onChanged={() => mutate()} />}
+        : <SessionsList rows={data.rows} writable={writable} showLate={late} onChanged={() => mutate()} />}
 
       {manual && <ManualModal emps={emps?.filter((e) => e) ?? []} onClose={() => setManual(false)} onSaved={() => { setManual(false); mutate(); toast('Registro guardado.'); }} />}
     </div>

@@ -48,3 +48,9 @@ export const TIMEZONES = [
   ['America/Bogota', 'Colombia'], ['America/Lima', 'Perú'], ['America/Santiago', 'Chile'], ['America/Argentina/Buenos_Aires', 'Argentina'],
   ['America/New_York', 'Nueva York'], ['America/Los_Angeles', 'Los Ángeles'], ['Europe/Madrid', 'España'],
 ] as const;
+
+/** 7 → "7 días"; 365 → "12 meses". */
+export function formatHistory(days: number) {
+  if (days >= 60) return `${Math.round(days / 30.4)} meses`;
+  return `${days} días`;
+}

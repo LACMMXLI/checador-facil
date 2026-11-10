@@ -47,6 +47,12 @@ export class BillingService {
     return st;
   }
 
+  /** Exige que el plan del negocio incluya una función (horarios, retardos, exportación…). */
+  async assertFeature(tenantId: string, feature: 'canSchedules' | 'canLateControl' | 'canExport', message: string) {
+    const { plan } = await this.getState(tenantId);
+    if (!plan[feature]) throw new AppError(403, 'PLAN_FEATURE', message);
+  }
+
   async assertEmployeeLimit(tenantId: string, extra = 1) {
     const { plan } = await this.getState(tenantId);
     const active = await this.prisma.employee.count({ where: { tenantId, active: true } });

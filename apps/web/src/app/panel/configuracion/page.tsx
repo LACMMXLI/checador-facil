@@ -90,7 +90,7 @@ export default function Settings() {
         )}
       </section>
 
-      {editing && <BranchModal initial={editing} branches={branches} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); mutateB(); }} />}
+      {editing && <BranchModal canLate={me.subscription.plan.canLateControl} initial={editing} branches={branches} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); mutateB(); }} />}
       {linking && <LinkModal branches={branches.filter((b) => b.active)} onClose={() => setLinking(false)} onCreated={(c) => { setLinking(false); setCode(c); }} />}
       <Modal open={!!code} onClose={() => { setCode(null); mutateD(); }} title="Código de vinculación">
         {code && (
@@ -126,7 +126,7 @@ function LinkModal({ branches, onClose, onCreated }: { branches: Branch[]; onClo
   );
 }
 
-function BranchModal({ initial, branches, onClose, onSaved }: { initial: Partial<Branch>; branches: Branch[]; onClose: () => void; onSaved: () => void }) {
+function BranchModal({ initial, branches, canLate, onClose, onSaved }: { initial: Partial<Branch>; branches: Branch[]; canLate: boolean; onClose: () => void; onSaved: () => void }) {
   const toast = useToast();
   const isNew = !initial.id;
   const [f, setF] = useState({ ...initial });
@@ -174,8 +174,8 @@ function BranchModal({ initial, branches, onClose, onSaved }: { initial: Partial
           </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Tolerancia de entrada (min)" hint="Hasta cuántos minutos tarde no cuenta como retardo."><Input type="number" min={0} max={120} value={f.lateToleranceMinutes ?? 0} onChange={(e) => set('lateToleranceMinutes', Number(e.target.value))} /></Field>
-          <Field label="Tolerancia de salida (min)" hint="Minutos antes de su hora que no cuentan como salida anticipada."><Input type="number" min={0} max={120} value={f.earlyLeaveToleranceMin ?? 0} onChange={(e) => set('earlyLeaveToleranceMin', Number(e.target.value))} /></Field>
+          {canLate && (<><Field label="Tolerancia de entrada (min)" hint="Hasta cuántos minutos tarde no cuenta como retardo."><Input type="number" min={0} max={120} value={f.lateToleranceMinutes ?? 0} onChange={(e) => set('lateToleranceMinutes', Number(e.target.value))} /></Field>
+          <Field label="Tolerancia de salida (min)" hint="Minutos antes de su hora que no cuentan como salida anticipada."><Input type="number" min={0} max={120} value={f.earlyLeaveToleranceMin ?? 0} onChange={(e) => set('earlyLeaveToleranceMin', Number(e.target.value))} /></Field></>)}
           <Field label="Separación mínima entre checadas (seg)" hint="Evita checadas duplicadas por error."><Input type="number" min={10} max={3600} value={f.minPunchGapSeconds ?? 60} onChange={(e) => set('minPunchGapSeconds', Number(e.target.value))} /></Field>
           <Field label="Jornada olvidada tras (horas)" hint="Si no hay salida después de este tiempo, se marca incompleta."><Input type="number" min={4} max={48} value={f.maxOpenHours ?? 16} onChange={(e) => set('maxOpenHours', Number(e.target.value))} /></Field>
         </div>

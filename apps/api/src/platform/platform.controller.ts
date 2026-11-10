@@ -28,6 +28,8 @@ const planS = z.object({
   trialDays: z.number().int().min(0).max(120),
   historyDays: z.number().int().min(1).max(3650).default(365),
   canExport: z.boolean().default(true),
+  canSchedules: z.boolean().default(true),
+  canLateControl: z.boolean().default(true),
   features: z.array(z.string().trim().min(1).max(120)).max(15),
   highlighted: z.boolean().default(false),
   active: z.boolean().default(true),

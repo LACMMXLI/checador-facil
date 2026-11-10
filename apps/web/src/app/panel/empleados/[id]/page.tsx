@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
-import { ArrowLeft, Copy, KeyRound, Mail, UserX, UserCheck } from 'lucide-react';
+import { ArrowLeft, Copy, KeyRound, Lock, Mail, UserX, UserCheck } from 'lucide-react';
 import { api, errMsg, fetcher } from '@/lib/api';
 import { Badge, Button, Card, ErrorBox, Field, Input, PageLoading, Select, useToast } from '@/components/ui';
 import { DAYS, DAYS_ORDER, minutesToTime, timeToMinutes } from '@/lib/format';
@@ -32,6 +32,8 @@ export default function EmployeePage() {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState('');
   const writable = me?.subscription.operational ?? true;
+  const canSched = me?.subscription.plan.canSchedules ?? false;
+  const schedOk = writable && canSched;
 
   useEffect(() => {
     if (!emp) return;
@@ -105,18 +107,24 @@ export default function EmployeePage() {
 
       <Card>
         <h2 className="font-display text-lg font-bold">Horario semanal</h2>
+        {!canSched && (
+          <div className="mt-3 flex items-start gap-3 rounded-xl bg-brand-50 p-4 text-sm text-brand-900">
+            <Lock className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+            <span><strong>Horarios y turnos nocturnos son del plan Avanzado.</strong> Con ellos calculas retardos y salidas anticipadas por empleado. <Link href="/panel/suscripcion" className="font-semibold underline">Ver mi plan</Link></span>
+          </div>
+        )}
         <p className="mt-1 text-sm text-ink-500">Se usa para calcular retardos y salidas anticipadas. Si la salida es menor que la entrada, el turno termina al día siguiente (turno nocturno).</p>
         <div className="mt-4 space-y-2">
           {DAYS_ORDER.map((d) => {
             const v = days[d]; if (!v) return null;
             return (
               <div key={d} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-ink-100 p-3">
-                <label className="flex w-32 items-center gap-2 font-semibold"><input type="checkbox" className="h-5 w-5 rounded" checked={v.work} disabled={!writable} onChange={(e) => setDays({ ...days, [d]: { ...v, work: e.target.checked } })} />{DAYS[d]}</label>
+                <label className="flex w-32 items-center gap-2 font-semibold"><input type="checkbox" className="h-5 w-5 rounded" checked={v.work} disabled={!schedOk} onChange={(e) => setDays({ ...days, [d]: { ...v, work: e.target.checked } })} />{DAYS[d]}</label>
                 {v.work ? (
                   <div className="flex items-center gap-2">
-                    <Input type="time" className="h-10 w-32" value={v.start} disabled={!writable} onChange={(e) => setDays({ ...days, [d]: { ...v, start: e.target.value } })} aria-label={`Entrada ${DAYS[d]}`} />
+                    <Input type="time" className="h-10 w-32" value={v.start} disabled={!schedOk} onChange={(e) => setDays({ ...days, [d]: { ...v, start: e.target.value } })} aria-label={`Entrada ${DAYS[d]}`} />
                     <span className="text-ink-400">a</span>
-                    <Input type="time" className="h-10 w-32" value={v.end} disabled={!writable} onChange={(e) => setDays({ ...days, [d]: { ...v, end: e.target.value } })} aria-label={`Salida ${DAYS[d]}`} />
+                    <Input type="time" className="h-10 w-32" value={v.end} disabled={!schedOk} onChange={(e) => setDays({ ...days, [d]: { ...v, end: e.target.value } })} aria-label={`Salida ${DAYS[d]}`} />
                     {crosses(v) && <Badge tone="blue">Termina al día siguiente</Badge>}
                   </div>
                 ) : <span className="text-sm text-ink-400">Descanso</span>}
@@ -125,8 +133,8 @@ export default function EmployeePage() {
           })}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button onClick={saveSchedule} loading={busy === 'sched'} disabled={!writable}>Guardar horario</Button>
-          <Button variant="outline" onClick={copyFirstToAll} disabled={!writable}>Copiar el primer día a los demás días de trabajo</Button>
+          <Button onClick={saveSchedule} loading={busy === 'sched'} disabled={!schedOk}>Guardar horario</Button>
+          <Button variant="outline" onClick={copyFirstToAll} disabled={!schedOk}>Copiar el primer día a los demás días de trabajo</Button>
         </div>
       </Card>
 
@@ -158,7 +166,7 @@ export default function EmployeePage() {
       <section>
         <h2 className="mb-3 font-display text-lg font-bold">Historial del mes</h2>
         {!hist ? <PageLoading /> : hist.rows.length === 0 ? <p className="rounded-2xl border border-dashed border-ink-200 p-6 text-center text-ink-500">Sin registros este mes.</p>
-          : <SessionsList rows={hist.rows} showEmployee={false} writable={writable} onChanged={() => mutateHist()} />}
+          : <SessionsList rows={hist.rows} showEmployee={false} showLate={me?.subscription.plan.canLateControl ?? false} writable={writable} onChanged={() => mutateHist()} />}
       </section>
     </div>
   );

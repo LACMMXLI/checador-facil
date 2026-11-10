@@ -44,6 +44,12 @@ export class AttendanceService {
     return emp;
   }
 
+  /** ¿El plan del negocio incluye control de retardos? Sin él no se calculan retardos ni salidas anticipadas. */
+  private async lateControl(tx: Prisma.TransactionClient | PrismaService, tenantId: string): Promise<boolean> {
+    const sub = await tx.subscription.findUnique({ where: { tenantId }, select: { plan: { select: { canLateControl: true } } } });
+    return !!sub?.plan.canLateControl;
+  }
+
   /** Qué movimiento correspondería ahora (sin escribir nada). Usado por el modo "con confirmación". */
   async preview(p: Omit<PunchInput, 'source'>) {
     const now = p.now ?? new Date();
@@ -103,7 +109,7 @@ export class AttendanceService {
 
         if (type === 'IN') {
           const schedules = await tx.workSchedule.findMany({ where: { employeeId: emp.id } });
-          const shift = resolveShift(schedules as ScheduleDay[], now, emp.branch.timezone);
+          const shift = (await this.lateControl(tx, p.tenantId)) ? resolveShift(schedules as ScheduleDay[], now, emp.branch.timezone) : null;
           const m = computeMetrics(now, null, shift, emp.branch.lateToleranceMinutes, emp.branch.earlyLeaveToleranceMin);
           const s = await tx.workSession.create({
             data: {
@@ -115,7 +121,7 @@ export class AttendanceService {
           return { type, at: ev.occurredAt, employeeName: emp.name, branchName: emp.branch.name, sessionId: s.id, lateMinutes: m.lateMinutes, workedMinutes: 0, duplicate: false };
         }
 
-        const shift: Shift | null = open!.scheduledStart && open!.scheduledEnd
+        const shift: Shift | null = (await this.lateControl(tx, p.tenantId)) && open!.scheduledStart && open!.scheduledEnd
           ? { localDate: open!.localDate, start: open!.scheduledStart, end: open!.scheduledEnd } : null;
         const m = computeMetrics(open!.startAt, now, shift, emp.branch.lateToleranceMinutes, emp.branch.earlyLeaveToleranceMin);
         await tx.workSession.update({
@@ -149,6 +155,7 @@ export class AttendanceService {
 
   async listSessions(tenantId: string, f: { from: string; to: string; employeeId?: string; branchId?: string; status?: SessionStatus }) {
     await this.sweepStale(tenantId);
+    const late = await this.lateControl(this.prisma, tenantId); // sin el plan, los retardos no se muestran (aunque existan datos de un plan anterior)
     const rows = await this.prisma.workSession.findMany({
       where: {
         tenantId, localDate: { gte: f.from, lte: f.to },
@@ -166,7 +173,7 @@ export class AttendanceService {
         branchId: s.employee.branch.id, branchName: s.employee.branch.name, timezone: tz,
         localDate: s.localDate, startAt: s.startAt, endAt: s.endAt,
         startLocal: formatLocal(s.startAt, tz), endLocal: s.endAt ? formatLocal(s.endAt, tz) : null,
-        status: s.status, lateMinutes: s.lateMinutes, earlyLeaveMinutes: s.earlyLeaveMinutes, workedMinutes: s.workedMinutes,
+        status: s.status, lateMinutes: late ? s.lateMinutes : 0, earlyLeaveMinutes: late ? s.earlyLeaveMinutes : 0, workedMinutes: s.workedMinutes,
         corrected: s.corrected,
       };
     });
@@ -174,6 +181,7 @@ export class AttendanceService {
 
   async dashboard(tenantId: string, now = new Date()) {
     await this.sweepStale(tenantId);
+    const lateCtl = await this.lateControl(this.prisma, tenantId);
     const employees = await this.prisma.employee.findMany({
       where: { tenantId, active: true }, include: { branch: { select: { id: true, name: true, timezone: true } } }, orderBy: { name: 'asc' },
     });
@@ -190,13 +198,13 @@ export class AttendanceService {
       const todays = mine.filter((s) => s.localDate === today);
       const incomplete = mine.find((s) => s.status === 'INCOMPLETE' && s.localDate === today);
       const rel = open ?? incomplete ?? todays[0] ?? null;
-      const status = displayStatus(rel ? { status: rel.status, lateMinutes: rel.lateMinutes } : null);
+      const status = displayStatus(rel ? { status: rel.status, lateMinutes: lateCtl ? rel.lateMinutes : 0 } : null);
       if (open) working++;
       entriesToday += todays.length;
-      if (todays.some((s) => s.lateMinutes > 0)) lates++;
+      if (lateCtl && todays.some((s) => s.lateMinutes > 0)) lates++;
       return {
         id: e.id, name: e.name, employeeNumber: e.employeeNumber, branchName: e.branch.name, status,
-        since: rel ? formatLocal(rel.startAt, tz) : null, lateMinutes: rel?.lateMinutes ?? 0,
+        since: rel ? formatLocal(rel.startAt, tz) : null, lateMinutes: lateCtl ? (rel?.lateMinutes ?? 0) : 0,
       };
     });
     const incidents = await this.prisma.workSession.count({
@@ -239,7 +247,7 @@ export class AttendanceService {
       const newStatus: SessionStatus = input.endAt ? 'CLOSED' : s.status === 'CLOSED' ? 'INCOMPLETE' : s.status;
       await this.assertNoOverlap(tx, tenantId, s.employeeId, input.startAt, input.endAt, s.id);
       const schedules = await tx.workSchedule.findMany({ where: { employeeId: s.employeeId } });
-      const shift = resolveShift(schedules as ScheduleDay[], input.startAt, branch.timezone);
+      const shift = (await this.lateControl(tx, tenantId)) ? resolveShift(schedules as ScheduleDay[], input.startAt, branch.timezone) : null;
       const m = computeMetrics(input.startAt, input.endAt, shift, branch.lateToleranceMinutes, branch.earlyLeaveToleranceMin);
       await tx.attendanceAdjustment.create({
         data: {
@@ -276,7 +284,7 @@ export class AttendanceService {
       if (!emp) throw notFound('No encontramos al empleado.');
       await this.assertNoOverlap(tx, tenantId, emp.id, input.startAt, input.endAt);
       const schedules = await tx.workSchedule.findMany({ where: { employeeId: emp.id } });
-      const shift = resolveShift(schedules as ScheduleDay[], input.startAt, emp.branch.timezone);
+      const shift = (await this.lateControl(tx, tenantId)) ? resolveShift(schedules as ScheduleDay[], input.startAt, emp.branch.timezone) : null;
       const m = computeMetrics(input.startAt, input.endAt, shift, emp.branch.lateToleranceMinutes, emp.branch.earlyLeaveToleranceMin);
       const grp = randomUUID();
       for (const [type, at] of [['IN', input.startAt], ['OUT', input.endAt]] as const) {

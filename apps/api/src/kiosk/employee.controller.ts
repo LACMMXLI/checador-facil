@@ -95,11 +95,12 @@ export class EmployeeController {
   async history(@Ctx() ctx: RequestCtx, @Query('limit') limit?: string) {
     const take = Math.min(Math.max(Number(limit) || 30, 1), 100);
     const emp = await this.prisma.employee.findFirstOrThrow({ where: { id: ctx.employeeId!, tenantId: ctx.tenantId! }, include: { branch: true } });
+    const late = (await this.billing.getState(ctx.tenantId!)).plan.canLateControl;
     const rows = await this.prisma.workSession.findMany({ where: { employeeId: emp.id, tenantId: ctx.tenantId! }, orderBy: { startAt: 'desc' }, take });
     const tz = emp.branch.timezone;
     return rows.map((s) => ({
       id: s.id, localDate: s.localDate, startLocal: formatLocal(s.startAt, tz), endLocal: s.endAt ? formatLocal(s.endAt, tz) : null,
-      status: s.status, workedMinutes: s.workedMinutes, lateMinutes: s.lateMinutes,
+      status: s.status, workedMinutes: s.workedMinutes, lateMinutes: late ? s.lateMinutes : 0,
     }));
   }
 
