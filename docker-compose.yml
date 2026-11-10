@@ -1,0 +1,82 @@
+# Reloj checador SaaS — pila completa: PostgreSQL + API + Web + respaldos automáticos.
+# Sólo el servicio "web" se publica; el API queda en la red interna (la web lo reenvía en /api).
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-reloj}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-reloj_saas}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: { context: ., dockerfile: docker/api.Dockerfile }
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-reloj}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-reloj_saas}?schema=public
+      API_PORT: 4000
+      APP_URL: ${APP_URL:?Define APP_URL, p. ej. https://checafacil.com}
+      APP_SECRET: ${APP_SECRET:?Define APP_SECRET (>=32 caracteres)}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-true}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
+      PLATFORM_REQUIRE_MFA: ${PLATFORM_REQUIRE_MFA:-true}
+      SEED_DEMO: ${SEED_DEMO:-false}
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_SITE_URL: ${APP_URL}
+        NEXT_PUBLIC_BRAND_NAME: ${NEXT_PUBLIC_BRAND_NAME:-ChecaFácil}
+        API_INTERNAL_URL: http://api:4000
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-3000}:3000"   # En Coolify se quita y el proxy publica el dominio
+
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-reloj}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-reloj_saas}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Respaldos diarios en /backups (se conservan $${BACKUP_KEEP_DAYS} días)"
+        while true; do
+          f=/backups/reloj_$$(date +%Y-%m-%d_%H%M).dump
+          if pg_dump -Fc -f "$$f"; then echo "OK $$f"; else echo "FALLÓ el respaldo"; rm -f "$$f"; fi
+          find /backups -name 'reloj_*.dump' -mtime +$${BACKUP_KEEP_DAYS} -delete
+          sleep 86400
+        done
+
+volumes:
+  pgdata:
+  backups:

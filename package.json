@@ -1,0 +1,12 @@
+{
+  "name": "reloj-saas",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "api:dev": "npm run start:dev -w apps/api",
+    "web:dev": "npm run dev -w apps/web",
+    "test": "npm test -w apps/api",
+    "build": "npm run build -w apps/api && npm run build -w apps/web"
+  }
+}

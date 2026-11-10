@@ -1,0 +1,406 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────── Enums ─────────────
+enum MembershipRole {
+  OWNER
+  MANAGER
+}
+
+enum PunchMode {
+  QR_ONLY
+  PIN_ONLY
+  QR_AND_PIN
+}
+
+enum QrConfirmMode {
+  AUTO
+  CONFIRM
+}
+
+enum DeviceStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum PunchType {
+  IN
+  OUT
+}
+
+enum PunchSource {
+  QR_AUTO
+  QR_CONFIRM
+  PIN
+  MANUAL
+}
+
+enum SessionStatus {
+  OPEN
+  CLOSED
+  INCOMPLETE
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  GRACE_PERIOD
+  SUSPENDED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SubjectType {
+  USER
+  EMPLOYEE
+  PLATFORM_ADMIN
+}
+
+enum TokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+  EMPLOYEE_INVITE
+}
+
+// ───────────── Identidad ─────────────
+model User {
+  id              String       @id @default(uuid()) @db.Uuid
+  email           String       @unique
+  name            String
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  createdAt       DateTime     @default(now())
+  memberships     Membership[]
+}
+
+model PlatformAdmin {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  totpSecret   String?
+  totpEnabled  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}
+
+model AuthSession {
+  id          String      @id @default(uuid()) @db.Uuid
+  tokenHash   String      @unique
+  subjectType SubjectType
+  subjectId   String      @db.Uuid
+  tenantId    String?     @db.Uuid
+  // Para administradores SaaS: la sesión sólo es válida tras completar MFA (si aplica).
+  mfaPassed   Boolean     @default(false)
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime    @default(now())
+  userAgent   String?
+
+  @@index([subjectType, subjectId])
+}
+
+model VerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  type      TokenType
+  tokenHash String    @unique
+  subjectId String    @db.Uuid
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([type, subjectId])
+}
+
+// ───────────── Negocio (tenant) ─────────────
+model Tenant {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  isDemo        Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  memberships   Membership[]
+  branches      Branch[]
+  employees     Employee[]
+  devices       Device[]
+  subscription  Subscription?
+  payments      Payment[]
+}
+
+model Membership {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @db.Uuid
+  tenantId  String         @db.Uuid
+  role      MembershipRole @default(OWNER)
+  createdAt DateTime       @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+}
+
+model Branch {
+  id                    String        @id @default(uuid()) @db.Uuid
+  tenantId              String        @db.Uuid
+  name                  String
+  timezone              String        @default("America/Mexico_City")
+  punchMode             PunchMode     @default(QR_AND_PIN)
+  qrConfirmMode         QrConfirmMode @default(AUTO)
+  lateToleranceMinutes  Int           @default(10)
+  earlyLeaveToleranceMin Int          @default(0)
+  minPunchGapSeconds    Int           @default(60)
+  maxOpenHours          Int           @default(16)
+  active                Boolean       @default(true)
+  createdAt             DateTime      @default(now())
+  tenant                Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees             Employee[]
+  devices               Device[]
+
+  @@index([tenantId])
+}
+
+model Employee {
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @db.Uuid
+  branchId       String           @db.Uuid
+  name           String
+  employeeNumber String
+  phone          String?
+  // HMAC-SHA256(APP_SECRET, tenantId:pin) para identificar por PIN sin guardarlo en claro.
+  pinLookup      String?
+  active         Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch           @relation(fields: [branchId], references: [id])
+  account        EmployeeAccount?
+  schedules      WorkSchedule[]
+  punches        PunchEvent[]
+  sessions       WorkSession[]
+
+  @@unique([tenantId, employeeNumber])
+  @@unique([tenantId, pinLookup])
+  @@index([tenantId, branchId])
+}
+
+model EmployeeAccount {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  employeeId   String   @unique @db.Uuid
+  email        String   @unique
+  passwordHash String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model WorkSchedule {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  employeeId   String   @db.Uuid
+  // 0 = domingo … 6 = sábado (día local en que INICIA el turno)
+  dayOfWeek    Int
+  isRest       Boolean  @default(false)
+  startMinutes Int      @default(0) // minutos desde 00:00 local
+  endMinutes   Int      @default(0) // si <= startMinutes, el turno termina al día siguiente
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, dayOfWeek])
+  @@index([tenantId])
+}
+
+// ───────────── Dispositivos ─────────────
+model Device {
+  id          String             @id @default(uuid()) @db.Uuid
+  tenantId    String             @db.Uuid
+  branchId    String             @db.Uuid
+  name        String
+  status      DeviceStatus       @default(ACTIVE)
+  tokenHash   String             @unique
+  lastSeenAt  DateTime?
+  createdAt   DateTime           @default(now())
+  revokedAt   DateTime?
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch             @relation(fields: [branchId], references: [id])
+  qrTokens    QrToken[]
+  activations DeviceActivation[]
+
+  @@index([tenantId, branchId])
+}
+
+model DeviceActivation {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  branchId  String    @db.Uuid
+  name      String
+  codeHash  String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  deviceId  String?   @db.Uuid
+  createdAt DateTime  @default(now())
+  device    Device?   @relation(fields: [deviceId], references: [id])
+
+  @@index([tenantId])
+}
+
+model QrToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  branchId  String   @db.Uuid
+  deviceId  String   @db.Uuid
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, expiresAt])
+}
+
+// ───────────── Asistencia ─────────────
+model PunchEvent {
+  id             String      @id @default(uuid()) @db.Uuid
+  tenantId       String      @db.Uuid
+  employeeId     String      @db.Uuid
+  branchId       String      @db.Uuid
+  deviceId       String?     @db.Uuid
+  source         PunchSource
+  type           PunchType
+  occurredAt     DateTime
+  idempotencyKey String
+  createdAt      DateTime    @default(now())
+  employee       Employee    @relation(fields: [employeeId], references: [id])
+
+  // Los eventos son inmutables: la aplicación nunca los actualiza ni borra.
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, employeeId, occurredAt])
+  @@index([tenantId, branchId, occurredAt])
+}
+
+model WorkSession {
+  id                 String        @id @default(uuid()) @db.Uuid
+  tenantId           String        @db.Uuid
+  employeeId         String        @db.Uuid
+  branchId           String        @db.Uuid
+  startAt            DateTime
+  endAt              DateTime?
+  localDate          String // YYYY-MM-DD, día local de la entrada
+  status             SessionStatus @default(OPEN)
+  scheduledStart     DateTime?
+  scheduledEnd       DateTime?
+  lateMinutes        Int           @default(0)
+  earlyLeaveMinutes  Int           @default(0)
+  workedMinutes      Int           @default(0)
+  corrected          Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  employee           Employee      @relation(fields: [employeeId], references: [id])
+  adjustments        AttendanceAdjustment[]
+
+  @@index([tenantId, localDate])
+  @@index([tenantId, employeeId, startAt])
+  @@index([tenantId, branchId, localDate])
+  // La restricción "una sola jornada abierta por empleado" se aplica con un índice
+  // único parcial creado en la migración SQL (Prisma no puede expresar índices parciales).
+}
+
+model AttendanceAdjustment {
+  id          String      @id @default(uuid()) @db.Uuid
+  tenantId    String      @db.Uuid
+  sessionId   String      @db.Uuid
+  userId      String      @db.Uuid
+  oldStartAt  DateTime?
+  oldEndAt    DateTime?
+  oldStatus   SessionStatus?
+  newStartAt  DateTime
+  newEndAt    DateTime?
+  newStatus   SessionStatus
+  reason      String
+  createdAt   DateTime    @default(now())
+  session     WorkSession @relation(fields: [sessionId], references: [id])
+
+  @@index([tenantId, sessionId])
+}
+
+// ───────────── Suscripciones ─────────────
+model Plan {
+  id               String         @id @default(uuid()) @db.Uuid
+  code             String         @unique
+  name             String
+  description      String         @default("")
+  priceMonthlyCents Int
+  currency         String         @default("MXN")
+  maxEmployees     Int
+  maxBranches      Int
+  trialDays        Int            @default(14)
+  features         String[]
+  highlighted      Boolean        @default(false)
+  active           Boolean        @default(true)
+  sortOrder        Int            @default(0)
+  subscriptions    Subscription[]
+}
+
+model Subscription {
+  id               String             @id @default(uuid()) @db.Uuid
+  tenantId         String             @unique @db.Uuid
+  planId           String             @db.Uuid
+  status           SubscriptionStatus @default(TRIAL)
+  trialEndsAt      DateTime?
+  currentPeriodEnd DateTime?
+  graceDays        Int                @default(3)
+  canceledAt       DateTime?
+  createdAt        DateTime           @default(now())
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan             Plan               @relation(fields: [planId], references: [id])
+  payments         Payment[]
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  tenantId       String        @db.Uuid
+  subscriptionId String        @db.Uuid
+  amountCents    Int
+  currency       String        @default("MXN")
+  months         Int           @default(1)
+  method         String        @default("TRANSFERENCIA")
+  reference      String?
+  notes          String?
+  status         PaymentStatus @default(PENDING)
+  reportedAt     DateTime      @default(now())
+  reviewedAt     DateTime?
+  reviewedBy     String?       @db.Uuid
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id])
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+model PlatformSetting {
+  key   String @id
+  value String
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String?  @db.Uuid
+  actorType  String
+  actorId    String?
+  action     String
+  entity     String?
+  entityId   String?
+  data       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([action])
+}
