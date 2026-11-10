@@ -17,9 +17,11 @@ function ask(question: string): Promise<string> {
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
     const anyRl = rl as unknown as { _writeToOutput: (s: string) => void };
-    process.stdout.write(question);
-    anyRl._writeToOutput = () => undefined; // oculta lo que se escribe
-    rl.question('', (answer) => { rl.close(); process.stdout.write('\n'); resolve(answer); });
+    let muted = false;
+    // Muestra la pregunta, pero NO lo que se teclea después.
+    anyRl._writeToOutput = (s: string) => { if (!muted) process.stdout.write(s); };
+    rl.question(question, (answer) => { rl.close(); process.stdout.write('\n'); resolve(answer); });
+    muted = true;
   });
 }
 
