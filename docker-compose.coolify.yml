@@ -40,7 +40,8 @@ services:
       PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
       PLATFORM_REQUIRE_MFA: ${PLATFORM_REQUIRE_MFA:-true}
       SEED_DEMO: ${SEED_DEMO:-false}
-      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
+      # Cloudflare → Traefik → web → api = 3 saltos de proxy de confianza (IP real del cliente en los límites).
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-3}
 
   web:
     build:
@@ -53,8 +54,9 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    ports:
-      - "${WEB_PORT:-3010}:3000"
+    # El dominio lo asigna Coolify (Traefik) al puerto interno 3000; no se publica un puerto del host.
+    expose:
+      - "3000"
 
   backup:
     image: postgres:17-alpine
