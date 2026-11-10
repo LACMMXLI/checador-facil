@@ -38,6 +38,8 @@ services:
       PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
       PLATFORM_REQUIRE_MFA: ${PLATFORM_REQUIRE_MFA:-true}
       SEED_DEMO: ${SEED_DEMO:-false}
+      # Traefik/Coolify → web → api: 2 saltos para ver la IP real del cliente.
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-2}
 
   web:
     build:
@@ -50,8 +52,10 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    ports:
-      - "${WEB_PORT:-3000}:3000"   # En Coolify se quita y el proxy publica el dominio
+    # Coolify publica el dominio con su proxy (Traefik): sólo se declara el puerto interno.
+    # Con Docker Compose a secas, agrega:  ports: ["3000:3000"]
+    expose:
+      - "3000"
 
   backup:
     image: postgres:17-alpine

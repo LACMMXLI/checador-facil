@@ -6,7 +6,9 @@ import helmet from 'helmet';
 /** Configuración común a producción y pruebas. */
 export function configureApp(app: INestApplication) {
   const exp = app as NestExpressApplication;
-  exp.set('trust proxy', 1); // detrás de Coolify/Traefik: IP real del cliente para límites
+  // Saltos de proxy de confianza para obtener la IP real del cliente (límites de intentos).
+  // Coolify: Traefik → web (Next reenvía /api) → api = 2 saltos. Directo detrás de un solo proxy = 1.
+  exp.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
   exp.disable('x-powered-by');
   app.use(helmet());
   app.use(cookieParser());

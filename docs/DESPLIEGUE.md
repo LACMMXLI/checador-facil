@@ -33,12 +33,16 @@ tudominio.com {
 
 ## 3. Con Coolify
 
-1. **New Resource → Docker Compose** (repositorio Git) y selecciona `docker-compose.yml`.
-2. En *Environment Variables* carga las variables de `.env.example` (sección producción).
-3. En el servicio **web** asigna el dominio `https://tudominio.com` (puerto 3000) y **quita** la línea `ports:` si Coolify lo pide.
-4. No asignes dominio a `api`, `db` ni `backup`.
-5. Activa *Force HTTPS*. Despliega.
-6. Cambiar `APP_URL` o `NEXT_PUBLIC_BRAND_NAME` requiere **reconstruir** `web` (se incorporan en el build).
+1. DNS: crea un registro `A` de `tudominio.com` hacia la IP del servidor.
+2. **Projects → New Resource → Public/Private Repository (Git)** con `https://github.com/LACMMXLI/checador-facil`, rama `main`,
+   *Build Pack* = **Docker Compose**, archivo `/docker-compose.yml`. (Repo privado: agrega una *Deploy Key* o la app de GitHub en Coolify.)
+3. **Environment Variables:** carga las de `.env.example` (sección producción). Obligatorias: `POSTGRES_PASSWORD`, `APP_URL`, `APP_SECRET`,
+   `PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_PASSWORD`. Genera `APP_SECRET` con `openssl rand -hex 32`.
+4. En el servicio **web** pon el dominio `https://tudominio.com:3000` (el `:3000` es el puerto interno). **No** asignes dominio a `api`, `db` ni `backup`.
+5. Deploy. Revisa primero los logs de `api` (migraciones + seed) y luego abre el dominio.
+6. Cambiar `APP_URL` o `NEXT_PUBLIC_BRAND_NAME` requiere **reconstruir** `web` (se incorporan en el build). Si tras desplegar el sitemap o las
+   etiquetas Open Graph muestran `localhost`, Coolify no pasó la variable al build: en el servicio web marca `NEXT_PUBLIC_SITE_URL`/`APP_URL` como *Build Variable*.
+7. `TRUST_PROXY_HOPS=2` (ya por defecto en el compose) es necesario: Traefik → web → api. Con otro valor, todos los clientes compartirían IP en los límites de intentos.
 
 ## 4. Primer arranque
 
