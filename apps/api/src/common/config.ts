@@ -11,5 +11,9 @@ export const config = {
 
 export function assertConfig() {
   if (config.secret.length < 32) throw new Error('APP_SECRET debe tener al menos 32 caracteres');
-  if (config.isProd && !config.cookieSecure) throw new Error('En producción COOKIE_SECURE debe ser true (HTTPS)');
+  // Sólo para pruebas en red local sin HTTPS: exige confirmar de forma explícita. Con HTTPS real, usa COOKIE_SECURE=true.
+  if (config.isProd && !config.cookieSecure && process.env.ALLOW_INSECURE_HTTP !== 'true') {
+    throw new Error('En producción COOKIE_SECURE debe ser true (HTTPS). Para una prueba en red local define ALLOW_INSECURE_HTTP=true.');
+  }
+  if (config.isProd && !config.cookieSecure) console.warn('[AVISO] Cookies sin Secure (ALLOW_INSECURE_HTTP=true): usa HTTPS antes de publicar en internet.');
 }
