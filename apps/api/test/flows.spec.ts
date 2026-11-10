@@ -354,7 +354,7 @@ describe('correcciones auditadas', () => {
 
 describe('reportes', () => {
   it('exporta CSV con BOM y protege contra inyección de fórmulas', async () => {
-    const o = await registerOwner(ctx, 'csv');
+    const o = await registerOwner(ctx, 'csv', 'avanzado');
     await noGap(o.tenantId);
     const emp = await createEmployee(o, '=HYPERLINK("http://x")');
     const kiosk = await linkKiosk(ctx, o, emp.branchId);
@@ -384,8 +384,8 @@ describe('reportes', () => {
 
 describe('aislamiento entre negocios', () => {
   it('un negocio no ve ni toca datos de otro', async () => {
-    const A = await registerOwner(ctx, 'isoA');
-    const B = await registerOwner(ctx, 'isoB');
+    const A = await registerOwner(ctx, 'isoA', 'avanzado');
+    const B = await registerOwner(ctx, 'isoB', 'avanzado');
     await noGap(A.tenantId); await noGap(B.tenantId);
     const ea = await createEmployee(A, 'Empleado A');
     const eb = await createEmployee(B, 'Empleado B');
@@ -460,6 +460,70 @@ describe('aislamiento entre negocios', () => {
   });
 });
 
+describe('diferencias entre planes', () => {
+  it('la prueba gratis dura 7 días', async () => {
+    const o = await registerOwner(ctx, 'trial7');
+    const me = (await o.c.get('/auth/me')).body;
+    expect(me.subscription.status).toBe('TRIAL');
+    expect(me.subscription.daysLeft).toBeGreaterThanOrEqual(6);
+    expect(me.subscription.daysLeft).toBeLessThanOrEqual(7);
+  });
+
+  it('Básico: máximo 5 empleados, sin exportar a Excel y sólo 7 días de reportes', async () => {
+    const o = await registerOwner(ctx, 'plbas');
+    await noGap(o.tenantId);
+    for (let i = 1; i <= 5; i++) await createEmployee(o, `Emp ${i}`);
+    const sixth = await o.c.post('/app/employees', { name: 'Emp 6', branchId: (await o.c.get('/app/branches')).body[0].id });
+    expect(sixth.status).toBe(409);
+    expect(sixth.body.error.code).toBe('PLAN_LIMIT_EMPLOYEES');
+
+    const csv = await o.c.get('/app/attendance/export.csv?range=today');
+    expect(csv.status).toBe(403);
+    expect(csv.body.error.code).toBe('PLAN_FEATURE');
+
+    const emp = (await o.c.get('/app/employees')).body[0];
+    const old = new Date(Date.now() - 40 * 86_400_000);
+    await o.c.post('/app/attendance/manual', { employeeId: emp.id, startAt: old, endAt: new Date(old.getTime() + 8 * 3_600_000), reason: 'Registro antiguo de prueba' });
+    const from = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
+    const to = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const r = (await o.c.get(`/app/attendance?from=${from}&to=${to}`)).body;
+    expect(r.limited).toBe(true);
+    expect(r.plan.historyDays).toBe(7);
+    expect(r.rows).toHaveLength(0); // el dato existe pero queda fuera de la ventana del plan
+    expect(await ctx.prisma.workSession.count({ where: { tenantId: o.tenantId } })).toBe(1); // no se borró
+  });
+
+  it('Avanzado: hasta 50 empleados, exporta y ve 12 meses; al subir de plan reaparece el historial', async () => {
+    const o = await registerOwner(ctx, 'plavz', 'avanzado');
+    await noGap(o.tenantId);
+    const emp = await createEmployee(o, 'Antigua');
+    const old = new Date(Date.now() - 40 * 86_400_000);
+    await o.c.post('/app/attendance/manual', { employeeId: emp.id, startAt: old, endAt: new Date(old.getTime() + 8 * 3_600_000), reason: 'Registro antiguo de prueba' });
+    const from = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
+    const to = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const r = (await o.c.get(`/app/attendance?from=${from}&to=${to}`)).body;
+    expect(r.limited).toBe(false);
+    expect(r.rows).toHaveLength(1);
+    expect((await o.c.get('/app/attendance/export.csv?range=month')).status).toBe(200);
+  });
+
+  it('mejorar de plan devuelve el acceso a datos y exportación sin perder nada', async () => {
+    const o = await registerOwner(ctx, 'plup');
+    const admin = await seedPlatformAdmin(ctx);
+    const emp = await createEmployee(o, 'Sube');
+    const old = new Date(Date.now() - 40 * 86_400_000);
+    await o.c.post('/app/attendance/manual', { employeeId: emp.id, startAt: old, endAt: new Date(old.getTime() + 8 * 3_600_000), reason: 'Registro antiguo de prueba' });
+    const from = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
+    const to = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    expect((await o.c.get(`/app/attendance?from=${from}&to=${to}`)).body.rows).toHaveLength(0);
+    const plans = (await admin.get('/platform/plans')).body;
+    const avz = plans.find((p: { code: string }) => p.code === 'avanzado');
+    expect((await admin.patch(`/platform/tenants/${o.tenantId}/plan`, { planId: avz.id })).status).toBe(200);
+    expect((await o.c.get(`/app/attendance?from=${from}&to=${to}`)).body.rows).toHaveLength(1);
+    expect((await o.c.get('/app/attendance/export.csv?range=month')).status).toBe(200);
+  });
+});
+
 describe('límites del plan y suscripción', () => {
   it('el backend impone el límite de empleados y sucursales', async () => {
     const o = await registerOwner(ctx, 'lim');
@@ -474,7 +538,7 @@ describe('límites del plan y suscripción', () => {
   });
 
   it('suspensión: se puede consultar y exportar, pero no checar ni editar; renovar la reactiva', async () => {
-    const o = await registerOwner(ctx, 'susp');
+    const o = await registerOwner(ctx, 'susp', 'avanzado');
     await noGap(o.tenantId);
     const emp = await createEmployee(o, 'Sara');
     const kiosk = await linkKiosk(ctx, o, emp.branchId);
@@ -580,7 +644,7 @@ describe('panel SaaS', () => {
 
   it('el negocio puede ser creado por el administrador y entrar con contraseña temporal', async () => {
     const admin = await seedPlatformAdmin(ctx);
-    const r = await admin.post('/platform/tenants', { businessName: 'Panadería Sol', ownerName: 'Marta', ownerEmail: 'marta@prueba.test', planCode: 'negocio' });
+    const r = await admin.post('/platform/tenants', { businessName: 'Panadería Sol', ownerName: 'Marta', ownerEmail: 'marta@prueba.test', planCode: 'avanzado' });
     expect(r.status).toBe(201);
     const login = await newClient(ctx).post('/auth/login', { email: 'marta@prueba.test', password: r.body.tempPassword });
     expect(login.status).toBe(200);

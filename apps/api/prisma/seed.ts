@@ -29,7 +29,7 @@ async function seedAdmin() {
 async function seedDemo() {
   const email = 'demo@demo.checafacil.local';
   if (await prisma.user.findUnique({ where: { email } })) { console.log('Demo ya existe.'); return; }
-  const plan = await prisma.plan.findUniqueOrThrow({ where: { code: 'negocio' } });
+  const plan = await prisma.plan.findUniqueOrThrow({ where: { code: 'avanzado' } });
   const tenant = await prisma.tenant.create({ data: { name: 'Cafetería Demo (ficticia)', isDemo: true } });
   const user = await prisma.user.create({
     data: { email, name: 'Dueño Demo', passwordHash: await hashPassword('Demo#2027demo'), emailVerifiedAt: new Date() },

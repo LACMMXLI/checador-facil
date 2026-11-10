@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Camera, CheckCircle2, Clock, Download, LogIn, LogOut, QrCode as QrIcon, Smartphone, Users, Wifi } from 'lucide-react';
+import { Camera, CheckCircle2, Clock, Download, LogOut, QrCode as QrIcon, Smartphone, Users, Wifi } from 'lucide-react';
 import { QrCode } from '@/components/qr-code';
 import { cn } from '@/components/ui';
 
@@ -142,7 +142,6 @@ export function MockReport() {
         <thead className="bg-ink-50 text-ink-500"><tr>{['Fecha', 'Empleado', 'Entrada', 'Salida', 'Horas', 'Nota'].map((h) => <th key={h} className="px-3 py-2 font-semibold">{h}</th>)}</tr></thead>
         <tbody>{rows.map((r, i) => <tr key={i} className="border-t border-ink-100">{r.map((c, j) => <td key={j} className={cn('whitespace-nowrap px-3 py-2.5', j === 5 && c && 'font-semibold text-amber-700')}>{c}</td>)}</tr>)}</tbody>
       </table></div>
-      <p className="border-t border-ink-100 px-4 py-2 text-[11px] text-ink-400">Datos de ejemplo</p>
     </div>
   );
 }
@@ -172,7 +171,6 @@ export function ProductShowcase() {
         <div className="order-2 lg:order-1">
           <h3 className="font-display text-2xl font-extrabold sm:text-3xl">{tab.title}</h3>
           <p className="mt-3 text-lg leading-relaxed text-ink-600">{tab.text}</p>
-          <p className="mt-5 inline-flex items-center gap-2 text-sm text-ink-500"><LogIn className="h-4 w-4" /> Ilustración con datos de ejemplo.</p>
         </div>
         <div className="order-1 flex justify-center lg:order-2" key={id}><div className="w-full animate-fade-up">{tab.node}</div></div>
       </div>

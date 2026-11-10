@@ -13,7 +13,7 @@ import { AppError, badRequest, conflict, notFound } from '../common/errors';
 import { localDateS, nameS, emailS, timeMinutesS, uuidS } from '../common/schemas';
 import { pinLookup, randomCode, randomPin, randomToken, sha256 } from '../common/crypto';
 import { config } from '../common/config';
-import { RangePreset, isValidTimezone, localDateString, localToUtc, rangeFor } from '../attendance/engine';
+import { RangePreset, addDaysToLocalDate, isValidTimezone, localDateString, localToUtc, rangeFor } from '../attendance/engine';
 import { csvLine, minutesToHHMM } from './csv';
 
 const branchS = z.object({
@@ -277,31 +277,44 @@ export class OwnerController {
   @Get('dashboard')
   dashboard(@Ctx() ctx: RequestCtx) { return this.attendance.dashboard(ctx.tenantId!); }
 
+  /**
+   * Resuelve el rango pedido y lo recorta al historial que permite el plan (historyDays).
+   * Los datos más antiguos NO se borran: vuelven a verse si el cliente sube de plan.
+   */
   private async resolveRange(tenantId: string, q: z.infer<typeof rangeQ>) {
-    if (q.from && q.to) {
-      if (q.from > q.to) throw badRequest('RANGE', 'La fecha inicial debe ser anterior a la final.');
-      return { from: q.from, to: q.to };
-    }
+    const st = await this.billing.getState(tenantId);
     const br = q.branchId
       ? await this.prisma.branch.findFirst({ where: { id: q.branchId, tenantId } })
       : await this.prisma.branch.findFirst({ where: { tenantId }, orderBy: { createdAt: 'asc' } });
     const today = localDateString(new Date(), br?.timezone ?? 'America/Mexico_City');
-    return rangeFor((q.range ?? 'today') as RangePreset, today);
+    let range: { from: string; to: string };
+    if (q.from && q.to) {
+      if (q.from > q.to) throw badRequest('RANGE', 'La fecha inicial debe ser anterior a la final.');
+      range = { from: q.from, to: q.to };
+    } else {
+      range = rangeFor((q.range ?? 'today') as RangePreset, today);
+    }
+    const historyDays = st.plan.historyDays;
+    const minDate = addDaysToLocalDate(today, -(historyDays - 1));
+    let limited = false;
+    if (range.from < minDate) { range = { from: minDate, to: range.to }; limited = true; }
+    return { ...range, limited, historyDays, canExport: st.plan.canExport };
   }
 
   @Get('attendance')
   async attendanceList(@Ctx() ctx: RequestCtx, @Query() query: unknown) {
     const q = rangeQ.parse(query);
     const r = await this.resolveRange(ctx.tenantId!, q);
-    const rows = await this.attendance.listSessions(ctx.tenantId!, { ...r, employeeId: q.employeeId, branchId: q.branchId, status: q.status });
+    const rows = await this.attendance.listSessions(ctx.tenantId!, { from: r.from, to: r.to, employeeId: q.employeeId, branchId: q.branchId, status: q.status });
     const totals = rows.reduce((a, s) => ({ workedMinutes: a.workedMinutes + s.workedMinutes, late: a.late + (s.lateMinutes > 0 ? 1 : 0), incomplete: a.incomplete + (s.status === 'INCOMPLETE' ? 1 : 0) }), { workedMinutes: 0, late: 0, incomplete: 0 });
-    return { range: r, totals, rows };
+    return { range: { from: r.from, to: r.to }, limited: r.limited, plan: { historyDays: r.historyDays, canExport: r.canExport }, totals, rows };
   }
 
   @Get('attendance/export.csv')
   async exportCsv(@Ctx() ctx: RequestCtx, @Query() query: unknown, @Res() res: Response) {
     const q = rangeQ.parse(query);
     const r = await this.resolveRange(ctx.tenantId!, q);
+    if (!r.canExport) throw new AppError(403, 'PLAN_FEATURE', 'La exportación a Excel está disponible en el plan Avanzado. Cambia de plan para descargar tus reportes.');
     const rows = await this.attendance.listSessions(ctx.tenantId!, { ...r, employeeId: q.employeeId, branchId: q.branchId, status: q.status });
     const statusEs = { OPEN: 'En curso', CLOSED: 'Completa', INCOMPLETE: 'Incompleta' } as const;
     const lines = [csvLine(['Fecha', 'Empleado', 'Número', 'Sucursal', 'Entrada', 'Salida', 'Horas trabajadas', 'Retardo (min)', 'Salida anticipada (min)', 'Estado', 'Corregida'])];
@@ -376,7 +389,7 @@ export class OwnerController {
     ]);
     return {
       status: st.status, operational: st.operational, periodEnd: st.periodEnd, daysLeft: st.daysLeft, graceDays: st.sub.graceDays,
-      plan: { name: st.plan.name, priceMonthlyCents: st.plan.priceMonthlyCents, currency: st.plan.currency, maxEmployees: st.plan.maxEmployees, maxBranches: st.plan.maxBranches },
+      plan: { name: st.plan.name, priceMonthlyCents: st.plan.priceMonthlyCents, currency: st.plan.currency, maxEmployees: st.plan.maxEmployees, maxBranches: st.plan.maxBranches, historyDays: st.plan.historyDays, canExport: st.plan.canExport },
       usage: { employees, branches },
       paymentInstructions: settings.payment_instructions, contactEmail: settings.contact_email, contactWhatsapp: settings.contact_whatsapp,
       payments: payments.map((p) => ({ id: p.id, amountCents: p.amountCents, currency: p.currency, months: p.months, reference: p.reference, status: p.status, reportedAt: p.reportedAt, reviewedAt: p.reviewedAt })),

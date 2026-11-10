@@ -341,7 +341,11 @@ model Plan {
   currency         String         @default("MXN")
   maxEmployees     Int
   maxBranches      Int
-  trialDays        Int            @default(14)
+  trialDays        Int            @default(7)
+  // Cuántos días hacia atrás puede consultar el cliente en reportes (los datos no se borran).
+  historyDays      Int            @default(365)
+  // Si el plan permite exportar reportes a Excel (CSV).
+  canExport        Boolean        @default(true)
   features         String[]
   highlighted      Boolean        @default(false)
   active           Boolean        @default(true)

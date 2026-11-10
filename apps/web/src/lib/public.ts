@@ -4,7 +4,8 @@ const API = process.env.API_INTERNAL_URL || 'http://localhost:4000';
 
 export interface PublicPlan {
   code: string; name: string; description: string; priceMonthlyCents: number; currency: string;
-  maxEmployees: number; maxBranches: number; trialDays: number; features: string[]; highlighted: boolean;
+  maxEmployees: number; maxBranches: number; trialDays: number; historyDays: number; canExport: boolean;
+  features: string[]; highlighted: boolean;
 }
 
 async function get<T>(path: string): Promise<T | null> {

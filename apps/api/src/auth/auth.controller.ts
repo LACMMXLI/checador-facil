@@ -176,7 +176,10 @@ export class AuthController {
     return {
       user: { id: user.id, name: user.name, email: user.email }, tenant: { id: tenant.id, name: tenant.name },
       role: ctx.role,
-      subscription: { status: st.status, operational: st.operational, planName: st.plan.name, periodEnd: st.periodEnd, daysLeft: st.daysLeft },
+      subscription: {
+        status: st.status, operational: st.operational, planName: st.plan.name, periodEnd: st.periodEnd, daysLeft: st.daysLeft,
+        plan: { maxEmployees: st.plan.maxEmployees, maxBranches: st.plan.maxBranches, historyDays: st.plan.historyDays, canExport: st.plan.canExport },
+      },
     };
   }
 }

@@ -2,14 +2,15 @@
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
-import { Download, Plus } from 'lucide-react';
+import Link from 'next/link';
+import { Download, Lock, Plus, Sparkles } from 'lucide-react';
 import { api, errMsg, fetcher } from '@/lib/api';
 import { Button, Card, Empty, ErrorBox, Field, Input, Modal, PageLoading, Select, Textarea, cn, useToast } from '@/components/ui';
 import { hhmm } from '@/lib/format';
 import { SessionsList, type SessionRow } from '@/components/panel/sessions';
 import type { Me } from '../layout';
 
-interface Res { range: { from: string; to: string }; totals: { workedMinutes: number; late: number; incomplete: number }; rows: SessionRow[] }
+interface Res { range: { from: string; to: string }; limited: boolean; plan: { historyDays: number; canExport: boolean }; totals: { workedMinutes: number; late: number; incomplete: number }; rows: SessionRow[] }
 interface Emp { id: string; name: string }
 interface Branch { id: string; name: string }
 
@@ -41,7 +42,11 @@ function Attendance() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h1 className="font-display text-2xl font-extrabold sm:text-3xl">Asistencias</h1>{data && <p className="text-ink-500">{data.range.from === data.range.to ? data.range.from : `${data.range.from} al ${data.range.to}`}</p>}</div>
         <div className="flex gap-2">
-          <a href={`/api/app/attendance/export.csv?${qs}`} className="inline-flex h-11 items-center gap-2 rounded-xl border border-ink-200 bg-white px-4 text-[15px] font-semibold hover:bg-ink-50"><Download className="h-4 w-4" />Excel (CSV)</a>
+          {data && !data.plan.canExport ? (
+            <button type="button" onClick={() => toast('La exportación a Excel está disponible en el plan Avanzado.', 'err')} className="inline-flex h-11 items-center gap-2 rounded-xl border border-ink-200 bg-ink-50 px-4 text-[15px] font-semibold text-ink-500"><Lock className="h-4 w-4" />Excel (CSV)</button>
+          ) : (
+            <a href={`/api/app/attendance/export.csv?${qs}`} className="inline-flex h-11 items-center gap-2 rounded-xl border border-ink-200 bg-white px-4 text-[15px] font-semibold hover:bg-ink-50"><Download className="h-4 w-4" />Excel (CSV)</a>
+          )}
           <Button onClick={() => setManual(true)} disabled={!writable}><Plus className="h-5 w-5" /><span className="hidden sm:inline">Registro manual</span><span className="sm:hidden">Manual</span></Button>
         </div>
       </div>
@@ -61,6 +66,13 @@ function Attendance() {
         {(branches?.length ?? 0) > 1 && <Field label="Sucursal"><Select value={branchId} onChange={(e) => setBranchId(e.target.value)}><option value="">Todas</option>{branches?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select></Field>}
         <Field label="Estado"><Select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Todos</option><option value="OPEN">En curso</option><option value="CLOSED">Completas</option><option value="INCOMPLETE">Incompletas</option></Select></Field>
       </Card>
+
+      {data && (data.limited || data.plan.historyDays < 60 || !data.plan.canExport) && (
+        <Link href="/panel/suscripcion" className="flex items-start gap-3 rounded-2xl border border-brand-200 bg-brand-50 p-4 text-brand-900 transition hover:bg-brand-100">
+          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+          <span className="text-sm"><strong>Tu plan {me?.subscription.planName ?? ''} muestra los últimos {data.plan.historyDays} días{!data.plan.canExport ? ' y no incluye exportación a Excel' : ''}.</strong> Con el plan Avanzado ves hasta 12 meses y descargas tus reportes. Tus registros anteriores no se pierden. <u className="font-semibold">Ver planes</u></span>
+        </Link>
+      )}
 
       {data && (
         <div className="grid grid-cols-3 gap-3">

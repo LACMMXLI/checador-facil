@@ -10,7 +10,10 @@ import { SUB_STATUS } from '@/lib/format';
 
 export interface Me {
   user: { id: string; name: string; email: string }; tenant: { id: string; name: string }; role: string;
-  subscription: { status: string; operational: boolean; planName: string; periodEnd: string | null; daysLeft: number | null };
+  subscription: {
+    status: string; operational: boolean; planName: string; periodEnd: string | null; daysLeft: number | null;
+    plan: { maxEmployees: number; maxBranches: number; historyDays: number; canExport: boolean };
+  };
 }
 
 const NAV = [

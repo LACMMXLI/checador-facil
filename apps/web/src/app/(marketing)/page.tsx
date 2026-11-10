@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import {
-  ArrowRight, BarChart3, CalendarClock, Check, ChevronDown, Clock, QrCode, ShieldCheck, Smartphone, Sparkles, Store, Tablet, UserPlus, Wallet, Wifi,
+  ArrowRight, BarChart3, CalendarClock, Check, ChevronDown, Clock, Minus, QrCode, ShieldCheck, Smartphone, Sparkles, Store, Tablet, UserPlus, Wallet, Wifi,
 } from 'lucide-react';
 import { buttonVariants, cn } from '@/components/ui/styles';
 import { DemoQr, MockDashboard, ProductShowcase } from '@/components/marketing/showcase';
-import { getPublicPlans } from '@/lib/public';
+import { getPublicPlans, type PublicPlan } from '@/lib/public';
 import { money } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -15,66 +15,149 @@ export const metadata: Metadata = {
 };
 
 const BENEFITS = [
-  { icon: Wallet, title: 'Sin comprar equipos', text: 'Olvídate de relojes checadores costosos y de su mantenimiento. Usas la tableta o el celular que ya tienes.' },
+  { icon: Wallet, title: 'Ahorra en equipo', text: 'Usa la tableta o el celular que ya tienes. Cero relojes costosos y cero mantenimiento.' },
   { icon: Smartphone, title: 'Funciona en cualquier celular', text: 'Android, iPhone, tabletas y computadoras. Todo desde el navegador, sin instalar aplicaciones.' },
-  { icon: QrCode, title: 'Registro con QR dinámico', text: 'Un código en pantalla que cambia cada 30 segundos. Tus empleados lo escanean con su celular.' },
-  { icon: Clock, title: 'Control de retardos', text: 'Tolerancias configurables. Ves al instante quién llegó tarde y cuántos minutos.' },
-  { icon: CalendarClock, title: 'Horarios y turnos', text: 'Define horarios por día, descansos y hasta turnos nocturnos que cruzan la medianoche.' },
-  { icon: BarChart3, title: 'Reportes de asistencia', text: 'Horas trabajadas por día, semana, quincena o mes, con exportación a Excel.' },
-  { icon: ShieldCheck, title: 'Correcciones con registro', text: 'Si alguien olvida checar, corriges con un motivo y queda constancia de quién y cuándo.' },
-  { icon: Store, title: 'Varias sucursales', text: 'Administra cada local por separado desde una sola cuenta (según tu plan).' },
+  { icon: QrCode, title: 'Un QR que cambia solo', text: 'El código en pantalla cambia cada 30 segundos. Tu equipo lo escanea con su celular y listo.' },
+  { icon: Clock, title: 'Retardos al instante', text: 'Define tu tolerancia y ve quién llegó tarde y cuántos minutos, sin revisar listas ni hojas.' },
+  { icon: CalendarClock, title: 'Horarios y turnos', text: 'Horarios por día, descansos y hasta turnos nocturnos que cruzan la medianoche.' },
+  { icon: BarChart3, title: 'Horas trabajadas, claras', text: 'Cada jornada con su entrada, salida y horas, por día, semana, quincena o mes.' },
+  { icon: ShieldCheck, title: 'Correcciones con respaldo', text: 'Si alguien olvida checar, lo corriges con un motivo y queda registro de quién cambió qué.' },
+  { icon: Store, title: 'Todos tus locales en un panel', text: 'Con el plan Avanzado administras varias sucursales desde la misma cuenta.' },
 ];
 
 const STEPS = [
   { icon: UserPlus, title: 'Registra tu negocio', text: 'Crea tu cuenta en un minuto. Sin tarjeta para empezar tu prueba gratis.' },
   { icon: Store, title: 'Agrega a tus empleados', text: 'Nombre, sucursal y horario. Cada quien recibe su PIN y, si quieres, su acceso personal.' },
   { icon: Tablet, title: 'Activa tu checador QR', text: 'Abre el enlace en una tableta, ingresa el código temporal y déjala en el local.' },
-  { icon: QrCode, title: 'Comienza a registrar asistencias', text: 'Tu equipo escanea el QR o usa el PIN compartido. Entrada y salida se alternan solas.' },
-  { icon: BarChart3, title: 'Consulta todo desde tu celular', text: 'Quién está trabajando, retardos, horas y reportes, estés donde estés.' },
+  { icon: QrCode, title: 'Tu equipo empieza a checar', text: 'Escanean el QR o usan el PIN compartido. Entrada y salida se alternan solas.' },
+  { icon: BarChart3, title: 'Tú lo ves todo en vivo', text: 'Quién está trabajando, quién llegó tarde y las horas de cada quien, estés donde estés.' },
 ];
 
-const FAQ = [
-  { q: '¿Necesito comprar un reloj checador?', a: 'No. Usas una tableta, un celular viejo o una computadora que ya tengas, con el navegador abierto en la pantalla del checador.' },
-  { q: '¿Funciona en iPhone y Android?', a: 'Sí. Funciona en los navegadores modernos de iPhone, Android, tabletas y computadoras. Para escanear el QR se necesita permitir el uso de la cámara.' },
-  { q: '¿Necesito instalar una aplicación?', a: 'No. Todo funciona desde el navegador. Si quieres, puedes agregar un acceso directo en la pantalla de inicio de tu celular, pero no es obligatorio.' },
-  { q: '¿Puedo usar una tableta?', a: 'Sí, es lo más recomendado: una tableta fija en el local mostrando el QR o el teclado de PIN. Se vincula con un código temporal y puedes revocarla cuando quieras.' },
-  { q: '¿Qué pasa si un empleado no tiene celular?', a: 'Puede checar con su PIN de 6 dígitos en el dispositivo compartido del local. Tú decides si tu sucursal usa sólo QR, sólo PIN o ambos.' },
-  { q: '¿Cómo funcionan los códigos QR?', a: 'La pantalla del local muestra un código que cambia cada 30 segundos. El empleado inicia sesión en su celular, escanea el código y el sistema valida todo en el servidor. Ayuda a evitar checadas desde otro lugar, pero no es infalible: una foto del código puede compartirse mientras siga vigente.' },
-  { q: '¿Puedo cancelar mi suscripción?', a: 'Sí. No hay plazo forzoso. Si no renuevas, tu cuenta se suspende pero no borramos tus datos: podrás consultarlos y exportarlos.' },
-  { q: '¿Puedo consultar asistencias anteriores?', a: 'Sí. El historial queda guardado y puedes filtrar por día, semana, quincena, mes o un rango personalizado, y exportarlo a Excel.' },
-];
+/** 7 → "7 días"; 365 → "12 meses". */
+function formatHistory(days: number) {
+  if (days >= 60) return `${Math.round(days / 30.4)} meses`;
+  return `${days} días`;
+}
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-async function Pricing() {
-  const plans = await getPublicPlans();
+function planLines(p: PublicPlan) {
+  return [
+    { ok: true, text: `Hasta ${p.maxEmployees} empleados` },
+    { ok: true, text: plural(p.maxBranches, 'sucursal', 'sucursales') },
+    { ok: true, text: `Reportes e historial de ${p.historyDays >= 60 ? 'hasta ' : 'los últimos '}${formatHistory(p.historyDays)}` },
+    { ok: p.canExport, text: p.canExport ? 'Exporta tus reportes a Excel' : 'Sin exportación a Excel' },
+    ...p.features.map((f) => ({ ok: true, text: f })),
+  ];
+}
+
+function Pricing({ plans }: { plans: PublicPlan[] | null }) {
   if (!plans?.length) {
     return <p className="mx-auto mt-10 max-w-md text-center text-ink-500">En este momento no podemos mostrar los precios. <Link href="/registro" className="font-semibold text-brand-700 underline">Crea tu cuenta</Link> para verlos.</p>;
   }
+  const cheapest = plans.reduce((a, b) => (b.priceMonthlyCents < a.priceMonthlyCents ? b : a));
+  const rows: [string, (p: PublicPlan) => string][] = [
+    ['Precio mensual', (p) => money(p.priceMonthlyCents, p.currency)],
+    ['Empleados', (p) => `Hasta ${p.maxEmployees}`],
+    ['Sucursales', (p) => String(p.maxBranches)],
+    ['Historial de reportes', (p) => formatHistory(p.historyDays)],
+    ['Exportar a Excel', (p) => (p.canExport ? 'yes' : 'no')],
+    ['QR dinámico y PIN compartido', () => 'yes'],
+    ['Horarios, turnos nocturnos y retardos', () => 'yes'],
+    ['Correcciones con bitácora', () => 'yes'],
+  ];
   return (
-    <div className={cn('mx-auto mt-12 grid max-w-4xl gap-6', plans.length > 1 && 'md:grid-cols-2')}>
-      {plans.map((p) => (
-        <div key={p.code} className={cn('relative flex flex-col rounded-3xl p-7 sm:p-8', p.highlighted ? 'bg-ink-900 text-white shadow-2xl ring-2 ring-brand-500' : 'bg-white shadow-soft ring-1 ring-ink-100')}>
-          {p.highlighted && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-brand-500 to-fuchsia-500 px-3 py-1 text-xs font-bold text-white">Más popular</span>}
-          <h3 className="font-display text-xl font-extrabold">{p.name}</h3>
-          <p className={cn('mt-1 text-sm', p.highlighted ? 'text-ink-300' : 'text-ink-500')}>{p.description}</p>
-          <p className="mt-5 flex items-baseline gap-1.5">
-            <span className="font-display text-5xl font-extrabold tracking-tight">{money(p.priceMonthlyCents, p.currency)}</span>
-            <span className={cn('text-sm', p.highlighted ? 'text-ink-300' : 'text-ink-500')}>{p.currency} / mes</span>
-          </p>
-          <ul className="mt-6 flex-1 space-y-3">
-            {p.features.map((f) => (
-              <li key={f} className="flex items-start gap-2.5 text-[15px]"><Check className={cn('mt-0.5 h-5 w-5 shrink-0', p.highlighted ? 'text-mint-400' : 'text-mint-600')} />{f}</li>
-            ))}
-          </ul>
-          <Link href={`/registro?plan=${p.code}`} className={cn(buttonVariants({ variant: p.highlighted ? 'primary' : 'dark', size: 'lg' }), 'mt-8 w-full')}>Comenzar</Link>
-          {p.trialDays > 0 && <p className={cn('mt-3 text-center text-xs', p.highlighted ? 'text-ink-400' : 'text-ink-500')}>{p.trialDays} días de prueba gratis · sin tarjeta</p>}
+    <>
+      <div className={cn('mx-auto mt-14 grid max-w-4xl items-stretch gap-6', plans.length > 1 && 'md:grid-cols-2')}>
+        {plans.map((p) => {
+          const hl = p.highlighted;
+          const diff = p.priceMonthlyCents - cheapest.priceMonthlyCents;
+          const ratio = Math.round(p.maxEmployees / cheapest.maxEmployees);
+          return (
+            <div key={p.code} className={cn('relative flex flex-col rounded-3xl p-7 sm:p-8', hl
+              ? 'bg-ink-900 text-white shadow-2xl ring-2 ring-brand-500 md:-my-4 md:py-11'
+              : 'bg-white/70 text-ink-700 shadow-soft ring-1 ring-ink-100')}>
+              {hl && <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-brand-500 to-fuchsia-500 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-glow">Recomendado</span>}
+              <h3 className="font-display text-xl font-extrabold">{p.name}</h3>
+              <p className={cn('mt-1 text-sm', hl ? 'text-ink-300' : 'text-ink-500')}>{p.description}</p>
+              <p className="mt-5 flex items-baseline gap-1.5">
+                <span className={cn('font-display font-extrabold tracking-tight', hl ? 'text-6xl' : 'text-5xl')}>{money(p.priceMonthlyCents, p.currency)}</span>
+                <span className={cn('text-sm', hl ? 'text-ink-300' : 'text-ink-500')}>{p.currency} / mes</span>
+              </p>
+              {hl && diff > 0 && (
+                <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-sm font-semibold text-mint-400">
+                  Solo {money(diff, p.currency)} más al mes{ratio >= 2 ? ` y tienes ${ratio} veces más empleados` : ''}, más sucursales, historial amplio y Excel.
+                </p>
+              )}
+              <ul className="mt-6 flex-1 space-y-3">
+                {planLines(p).map((l) => (
+                  <li key={l.text} className={cn('flex items-start gap-2.5 text-[15px]', !l.ok && 'opacity-60')}>
+                    {l.ok
+                      ? <Check className={cn('mt-0.5 h-5 w-5 shrink-0', hl ? 'text-mint-400' : 'text-mint-600')} />
+                      : <Minus className="mt-0.5 h-5 w-5 shrink-0 text-ink-400" />}
+                    <span className={cn(!l.ok && 'line-through decoration-ink-300')}>{l.text}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href={`/registro?plan=${p.code}`} className={cn(buttonVariants({ variant: hl ? 'primary' : 'outline', size: 'lg' }), 'mt-8 w-full', hl && 'text-lg')}>
+                {hl ? `Probar ${p.name} gratis` : `Probar ${p.name}`}
+              </Link>
+              {p.trialDays > 0 && <p className={cn('mt-3 text-center text-xs', hl ? 'text-ink-400' : 'text-ink-500')}>{p.trialDays} días de prueba gratis · sin tarjeta</p>}
+            </div>
+          );
+        })}
+      </div>
+
+      {plans.length > 1 && (
+        <div className="mx-auto mt-16 max-w-4xl overflow-x-auto rounded-2xl bg-white shadow-soft ring-1 ring-ink-100">
+          <table className="w-full min-w-[520px] text-left text-[15px]">
+            <caption className="sr-only">Comparación de planes</caption>
+            <thead>
+              <tr className="border-b border-ink-100">
+                <th className="px-5 py-4 font-display text-base font-bold">Compara los planes</th>
+                {plans.map((p) => <th key={p.code} className={cn('px-5 py-4 text-center font-display text-base font-extrabold', p.highlighted && 'bg-brand-50 text-brand-700')}>{p.name}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100">
+              {rows.map(([label, fn]) => (
+                <tr key={label}>
+                  <td className="px-5 py-3.5 font-medium text-ink-700">{label}</td>
+                  {plans.map((p) => {
+                    const v = fn(p);
+                    return (
+                      <td key={p.code} className={cn('px-5 py-3.5 text-center font-semibold', p.highlighted && 'bg-brand-50/60')}>
+                        {v === 'yes' ? <Check className="mx-auto h-5 w-5 text-mint-600" aria-label="Incluido" /> : v === 'no' ? <Minus className="mx-auto h-5 w-5 text-ink-300" aria-label="No incluido" /> : v}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      ))}
-    </div>
+      )}
+    </>
   );
 }
 
 export default async function Home() {
   const plans = await getPublicPlans();
+  const trial = plans?.length ? Math.max(...plans.map((p) => p.trialDays)) : 7;
+  const basic = plans?.[0]; const top = plans && plans.length > 1 ? plans[plans.length - 1] : null;
+
+  const FAQ = [
+    { q: '¿Necesito comprar un reloj checador?', a: 'No. Usas una tableta, un celular viejo o una computadora que ya tengas, con el navegador abierto en la pantalla del checador.' },
+    { q: '¿Funciona en iPhone y Android?', a: 'Sí. Funciona en los navegadores modernos de iPhone, Android, tabletas y computadoras. Para escanear el QR se necesita permitir el uso de la cámara.' },
+    { q: '¿Necesito instalar una aplicación?', a: 'No. Todo funciona desde el navegador. Si quieres, puedes agregar un acceso directo en la pantalla de inicio de tu celular, pero no es obligatorio.' },
+    { q: '¿Puedo usar una tableta?', a: 'Sí, es lo más recomendado: una tableta fija en el local mostrando el QR o el teclado de PIN. Se vincula con un código temporal y puedes revocarla cuando quieras.' },
+    { q: '¿Qué pasa si un empleado no tiene celular?', a: 'Puede checar con su PIN de 6 dígitos en el dispositivo compartido del local. Tú decides si tu sucursal usa sólo QR, sólo PIN o ambos.' },
+    { q: '¿Cómo funcionan los códigos QR?', a: 'La pantalla del local muestra un código que cambia cada 30 segundos. El empleado inicia sesión en su celular, escanea el código y el sistema valida todo en el servidor. Ayuda a evitar checadas desde otro lugar, pero no es infalible: una foto del código puede compartirse mientras siga vigente.' },
+    { q: `¿Qué incluye la prueba gratis de ${trial} días?`, a: `Usas el plan que elijas con todas sus funciones durante ${trial} días, sin dar tarjeta. Si no continúas, tu cuenta se pausa y no borramos tus datos.` },
+    { q: '¿Cuál plan me conviene?', a: basic && top ? `Si tienes un solo local y hasta ${basic.maxEmployees} empleados, el ${basic.name} es suficiente. Si tu equipo es más grande, tienes varias sucursales o necesitas revisar ${formatHistory(top.historyDays)} de historial y exportar a Excel, elige el ${top.name}.` : 'Elige según el número de empleados y sucursales que tengas.' },
+    { q: '¿Puedo cambiar de plan después?', a: 'Sí. Escríbenos y lo cambiamos. Si subes de plan recuperas al instante el historial y la exportación, porque tus datos nunca se borran.' },
+    { q: '¿Puedo cancelar mi suscripción?', a: 'Sí. No hay plazo forzoso. Si no renuevas, tu cuenta se suspende pero no borramos tus datos: podrás consultarlos y exportarlos.' },
+    { q: '¿Puedo consultar asistencias anteriores?', a: basic && top ? `Sí. Se guardan todas. Con el plan ${basic.name} consultas los últimos ${formatHistory(basic.historyDays)} y con el ${top.name} hasta ${formatHistory(top.historyDays)}, por día, semana, quincena, mes o un rango.` : 'Sí. El historial se conserva y puedes filtrarlo por día, semana, quincena, mes o un rango.' },
+  ];
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -107,18 +190,18 @@ export default async function Home() {
               Olvídate de los relojes checadores costosos. Tus empleados registran sus entradas y salidas desde su celular, mientras tú controlas todo en tiempo real.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/registro" className={cn(buttonVariants({ size: 'lg' }), 'text-lg')}>Comenzar prueba gratis <ArrowRight className="h-5 w-5" /></Link>
+              <Link href="/registro" className={cn(buttonVariants({ size: 'lg' }), 'text-lg')}>Probar gratis {trial} días <ArrowRight className="h-5 w-5" /></Link>
               <Link href="#como-funciona" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'text-lg')}>Ver cómo funciona</Link>
             </div>
             <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-ink-600">
-              {['Sin tarjeta para empezar', 'Android, iPhone y tabletas', 'Sin apps que instalar'].map((t) => (
+              {[`${trial} días gratis, sin tarjeta`, 'Android, iPhone y tabletas', 'Empiezas hoy mismo'].map((t) => (
                 <li key={t} className="flex items-center gap-1.5"><Check className="h-4 w-4 text-mint-600" />{t}</li>
               ))}
             </ul>
           </div>
 
           <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-            <div className="relative mx-auto flex max-w-[430px] items-center justify-center">
+            <div className="relative mx-auto flex max-w-[430px] items-center justify-center pb-10">
               <div className="animate-float rounded-[2rem] border-[8px] border-ink-900 bg-gradient-to-b from-brand-950 to-ink-950 p-5 text-center text-white shadow-2xl">
                 <p className="text-xs font-semibold text-brand-200">Tu negocio · Sucursal Centro</p>
                 <div className="my-4 flex justify-center"><DemoQr size={190} /></div>
@@ -127,7 +210,6 @@ export default async function Home() {
               </div>
               <div className="absolute -bottom-10 -left-4 hidden scale-[.78] sm:block md:-left-24 lg:-left-32"><MockDashboard /></div>
             </div>
-            <p className="mt-14 text-center text-xs text-ink-400 sm:mt-16">Ilustración del producto con datos de ejemplo.</p>
           </div>
         </div>
       </section>
@@ -136,9 +218,9 @@ export default async function Home() {
       <section id="beneficios" className="scroll-mt-20 py-20">
         <div className="container-x">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="font-semibold text-brand-600">Hecho para negocios como el tuyo</p>
-            <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Todo lo que necesitas, nada de lo que no</h2>
-            <p className="mt-4 text-lg text-ink-600">Un reloj checador simple, que se entiende en minutos y se paga mes a mes.</p>
+            <p className="font-semibold text-brand-600">Por qué te conviene</p>
+            <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Controla a tu equipo sin perseguir a nadie</h2>
+            <p className="mt-4 text-lg text-ink-600">Sabes quién llegó, quién llegó tarde y cuántas horas trabajó cada persona, al instante y desde tu celular.</p>
           </div>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {BENEFITS.map((b) => (
@@ -157,7 +239,7 @@ export default async function Home() {
         <div className="container-x">
           <div className="mx-auto max-w-2xl text-center">
             <p className="font-semibold text-brand-300">Cómo funciona</p>
-            <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Listo para checar en cinco pasos</h2>
+            <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Empieza a checar hoy en 5 pasos</h2>
           </div>
           <ol className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-5">
             {STEPS.map((s, i) => (
@@ -177,8 +259,8 @@ export default async function Home() {
       <section id="demo" className="scroll-mt-20 py-20">
         <div className="container-x">
           <div className="mx-auto mb-10 max-w-2xl text-center">
-            <p className="font-semibold text-brand-600">El producto</p>
-            <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Así se ve en el día a día</h2>
+            <p className="font-semibold text-brand-600">Míralo en acción</p>
+            <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Así controlas tu negocio desde el celular</h2>
           </div>
           <ProductShowcase />
         </div>
@@ -189,10 +271,10 @@ export default async function Home() {
         <div className="container-x">
           <div className="mx-auto max-w-2xl text-center">
             <p className="font-semibold text-brand-600">Planes y precios</p>
-            <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Una mensualidad simple, sin sorpresas</h2>
-            <p className="mt-4 text-lg text-ink-600">Empieza con prueba gratis. Sin tarjeta, sin plazo forzoso.</p>
+            <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Elige tu plan y empieza hoy</h2>
+            <p className="mt-4 text-lg text-ink-600">{trial} días de prueba gratis. Sin tarjeta. Cancela cuando quieras.</p>
           </div>
-          <Pricing />
+          <Pricing plans={plans} />
         </div>
       </section>
 
@@ -217,8 +299,8 @@ export default async function Home() {
       <section className="px-4 pb-20">
         <div className="container-x">
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-700 via-brand-600 to-fuchsia-600 px-6 py-14 text-center text-white shadow-glow sm:px-12">
-            <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Deja de perseguir hojas de asistencia</h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-brand-100">Crea tu cuenta, agrega a tu equipo y registra tu primera checada hoy mismo.</p>
+            <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Empieza hoy tu prueba gratis de {trial} días</h2>
+            <p className="mx-auto mt-4 max-w-xl text-lg text-brand-100">Crea tu cuenta, agrega a tu equipo y registra tu primera checada hoy mismo. Sin tarjeta.</p>
             <Link href="/registro" className={cn(buttonVariants({ variant: 'light', size: 'lg' }), 'mt-8')}>Comenzar prueba gratis <ArrowRight className="h-5 w-5" /></Link>
           </div>
         </div>

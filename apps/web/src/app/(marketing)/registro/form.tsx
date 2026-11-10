@@ -54,7 +54,7 @@ export function RegisterForm({ plans }: { plans: PublicPlan[] }) {
   }
 
   return (
-    <AuthShell title="Crea tu cuenta" subtitle="Empieza tu prueba gratis. No pedimos tarjeta." footer={<>¿Ya tienes cuenta? <AuthLink href="/login">Inicia sesión</AuthLink></>}>
+    <AuthShell title="Crea tu cuenta" subtitle={`Empieza tu prueba gratis de ${plans[0]?.trialDays ?? 7} días. No pedimos tarjeta.`} footer={<>¿Ya tienes cuenta? <AuthLink href="/login">Inicia sesión</AuthLink></>}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         {error && <ErrorBox message={error} />}
         {plans.length > 0 && (

@@ -12,7 +12,8 @@ export class PublicController {
     const plans = await this.prisma.plan.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } });
     return plans.map((p) => ({
       code: p.code, name: p.name, description: p.description, priceMonthlyCents: p.priceMonthlyCents, currency: p.currency,
-      maxEmployees: p.maxEmployees, maxBranches: p.maxBranches, trialDays: p.trialDays, features: p.features, highlighted: p.highlighted,
+      maxEmployees: p.maxEmployees, maxBranches: p.maxBranches, trialDays: p.trialDays, historyDays: p.historyDays, canExport: p.canExport,
+      features: p.features, highlighted: p.highlighted,
     }));
   }
 

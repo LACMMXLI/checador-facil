@@ -49,10 +49,10 @@ export function newClient(ctx: TestCtx) { return new Client(ctx.http()); }
 
 let seq = 0;
 /** Registra un negocio, verifica el correo e inicia sesión. */
-export async function registerOwner(ctx: TestCtx, label = `n${++seq}`) {
+export async function registerOwner(ctx: TestCtx, label = `n${++seq}`, planCode = 'basico') {
   const c = newClient(ctx);
   const email = `${label}@prueba.test`.toLowerCase();
-  const r = await c.post('/auth/register', { businessName: `Negocio ${label}`, name: `Dueño ${label}`, email, password: 'Clave1234x', acceptTerms: true, planCode: 'basico' });
+  const r = await c.post('/auth/register', { businessName: `Negocio ${label}`, name: `Dueño ${label}`, email, password: 'Clave1234x', acceptTerms: true, planCode });
   if (r.status !== 201) throw new Error('register falló: ' + JSON.stringify(r.body));
   const link = MailService.outbox.get(email)!.link!;
   const token = new URL(link).searchParams.get('token')!;
