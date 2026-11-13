@@ -5,6 +5,7 @@ import { Menu, X } from 'lucide-react';
 import { Logo, buttonVariants, cn } from '@/components/ui';
 
 const links = [
+  { href: '/#reforma', label: 'Reforma 2027' },
   { href: '/#beneficios', label: 'Beneficios' },
   { href: '/#como-funciona', label: 'Cómo funciona' },
   { href: '/#demo', label: 'Producto' },

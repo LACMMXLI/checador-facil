@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "api", "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe", "runtimeArgs": ["C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js", "run", "api:dev"], "port": 4000 },
+    { "name": "web", "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe", "runtimeArgs": ["C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js", "run", "web:dev"], "port": 3000 }
+  ]
+}

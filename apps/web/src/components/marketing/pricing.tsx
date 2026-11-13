@@ -81,56 +81,73 @@ export function PricingSection({ plans }: { plans: PublicPlan[] | null }) {
 
   return (
     <>
-      <div className={cn('mx-auto mt-14 grid max-w-4xl items-stretch gap-6', plans.length > 1 && 'md:grid-cols-2')}>
+      <div className={cn('mx-auto mt-16 grid max-w-5xl grid-cols-1 items-center gap-8', plans.length > 1 && 'md:grid-cols-[1.12fr_1fr]')}>
         {plans.map((p) => {
-          const hl = p.highlighted;
+          const star = p.code === cheapest.code; // el plan más económico es el protagonista
           const diff = p.priceMonthlyCents - cheapest.priceMonthlyCents;
           const ratio = Math.round(p.maxEmployees / cheapest.maxEmployees);
+          const perDay = Math.floor(p.priceMonthlyCents / 100 / 30) + 1;
           const lines = cardLines(p);
           const shown = more ? lines : lines.slice(0, VISIBLE);
           const hidden = lines.length - shown.length;
           return (
-            <div key={p.code} className={cn('relative flex flex-col rounded-3xl p-7 sm:p-8', hl
-              ? 'bg-ink-900 text-white shadow-2xl ring-2 ring-brand-500 md:-my-4 md:py-11'
-              : 'bg-white/70 text-ink-700 shadow-soft ring-1 ring-ink-100')}>
-              {hl && <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-brand-500 to-fuchsia-500 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-glow">Recomendado</span>}
-              <h3 className="font-display text-xl font-extrabold">{p.name}</h3>
-              <p className={cn('mt-1 text-sm', hl ? 'text-ink-300' : 'text-ink-500')}>{p.description}</p>
-              <p className="mt-5 flex items-baseline gap-1.5">
-                <span className={cn('font-display font-extrabold tracking-tight', hl ? 'text-6xl' : 'text-5xl')}>{money(p.priceMonthlyCents, p.currency)}</span>
-                <span className={cn('text-sm', hl ? 'text-ink-300' : 'text-ink-500')}>{p.currency} / mes</span>
-              </p>
-              {hl && diff > 0 && (
-                <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-sm font-semibold text-mint-400">
-                  Solo {money(diff, p.currency)} más al mes{ratio >= 2 ? ` y tienes ${ratio} veces más empleados` : ''}, horarios, retardos, varias sucursales y Excel.
+            <div key={p.code} className={cn('relative', star && 'md:-my-4')}>
+              {star && <div className="glow-conic pointer-events-none absolute -inset-1.5 rounded-[2.2rem]" aria-hidden />}
+              <div className={cn('relative flex h-full flex-col overflow-hidden rounded-[2rem] p-7 sm:p-9', star
+                ? 'bg-gradient-to-br from-brand-600 via-brand-700 to-fuchsia-700 text-white shadow-2xl'
+                : 'bg-ink-900 text-white shadow-xl ring-1 ring-white/10')}>
+                {star && <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-fuchsia-400/40 blur-3xl" aria-hidden />}
+                <div className="relative flex flex-wrap items-center gap-2">
+                  <h3 className={cn('font-display font-extrabold', star ? 'text-2xl' : 'text-xl')}>{p.name}</h3>
+                  {star
+                    ? <span className="rounded-full bg-amber-300 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-ink-900 shadow-lg">★ El más económico</span>
+                    : p.highlighted && <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-200 ring-1 ring-white/15">El más completo</span>}
+                </div>
+                <p className={cn('relative mt-1 text-sm', star ? 'text-brand-100' : 'text-ink-300')}>{p.description}</p>
+
+                <p className="relative mt-6 flex items-end gap-2">
+                  {star && <span className="mb-3 text-sm font-bold uppercase tracking-wider text-brand-100 sm:mb-5">Sólo</span>}
+                  <span className={cn('font-display font-extrabold leading-none tracking-tighter', star ? 'text-[5.5rem] drop-shadow-[0_6px_24px_rgba(0,0,0,.35)] sm:text-[7.5rem]' : 'text-5xl sm:text-6xl')}>{money(p.priceMonthlyCents, p.currency)}</span>
+                  <span className={cn('font-semibold', star ? 'mb-3 text-base text-brand-100 sm:mb-5 sm:text-lg' : 'mb-1.5 text-sm text-ink-300')}>{p.currency}<br />al mes</span>
                 </p>
-              )}
-              <ul className="mt-6 flex-1 space-y-2.5">
-                {shown.map((l) => (
-                  <li key={l.text} className={cn('flex items-start gap-2.5 text-[15px]', !l.ok && 'opacity-60')}>
-                    {l.ok ? <Check className={cn('mt-0.5 h-5 w-5 shrink-0', hl ? 'text-mint-400' : 'text-mint-600')} /> : <Minus className="mt-0.5 h-5 w-5 shrink-0 text-ink-400" />}
-                    <span className={cn(!l.ok && 'line-through decoration-ink-300')}>{l.text}</span>
-                  </li>
-                ))}
-              </ul>
-              {hidden > 0 && (
-                <button type="button" onClick={() => setMore(true)} className={cn('mt-3 text-left text-sm font-semibold underline-offset-2 hover:underline', hl ? 'text-brand-200' : 'text-brand-700')}>
-                  {lines.slice(VISIBLE).some((l) => l.ok)
-                    ? `+ ${lines.slice(VISIBLE).filter((l) => l.ok).length} beneficio${lines.slice(VISIBLE).filter((l) => l.ok).length > 1 ? 's' : ''} más`
-                    : 'Ver lo que no incluye'}
-                </button>
-              )}
-              <Link href={`/registro?plan=${p.code}`} className={cn(buttonVariants({ variant: hl ? 'primary' : 'outline', size: 'lg' }), 'mt-7 w-full', hl && 'text-lg')}>
-                {hl ? `Probar ${p.name} gratis` : `Probar ${p.name}`}
-              </Link>
-              {p.trialDays > 0 && <p className={cn('mt-3 text-center text-xs', hl ? 'text-ink-400' : 'text-ink-500')}>{p.trialDays} días de prueba gratis · sin tarjeta</p>}
+                {star ? (
+                  <p className="relative mt-4 inline-flex w-fit items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-base font-bold ring-1 ring-white/25 backdrop-blur">
+                    <span className="relative flex h-2.5 w-2.5"><span className="absolute inset-0 animate-pulse-ring rounded-full bg-amber-300" /><span className="relative h-2.5 w-2.5 rounded-full bg-amber-300" /></span>
+                    Menos de ${perDay} al día por todo tu equipo
+                  </p>
+                ) : diff > 0 && (
+                  <p className="relative mt-4 rounded-xl bg-white/10 px-3 py-2 text-sm font-semibold text-mint-400">
+                    Solo {money(diff, p.currency)} más al mes{ratio >= 2 ? ` y tienes ${ratio} veces más empleados` : ''}, horarios, retardos, varias sucursales y Excel.
+                  </p>
+                )}
+
+                <ul className="relative mt-6 flex-1 space-y-2.5">
+                  {shown.map((l) => (
+                    <li key={l.text} className={cn('flex items-start gap-2.5 text-[15px]', star && 'font-medium', !l.ok && 'opacity-60')}>
+                      {l.ok ? <Check className={cn('mt-0.5 h-5 w-5 shrink-0', star ? 'text-amber-300' : 'text-mint-400')} /> : <Minus className="mt-0.5 h-5 w-5 shrink-0 text-white/50" />}
+                      <span className={cn(!l.ok && 'line-through decoration-white/40')}>{l.text}</span>
+                    </li>
+                  ))}
+                </ul>
+                {hidden > 0 && (
+                  <button type="button" onClick={() => setMore(true)} className={cn('relative mt-3 text-left text-sm font-semibold underline-offset-2 hover:underline', star ? 'text-amber-200' : 'text-brand-200')}>
+                    {lines.slice(VISIBLE).some((l) => l.ok)
+                      ? `+ ${lines.slice(VISIBLE).filter((l) => l.ok).length} beneficio${lines.slice(VISIBLE).filter((l) => l.ok).length > 1 ? 's' : ''} más`
+                      : 'Ver lo que no incluye'}
+                  </button>
+                )}
+                <Link href={`/registro?plan=${p.code}`} className={cn(buttonVariants({ variant: star ? 'light' : 'primary', size: 'lg' }), 'relative mt-7 w-full', star && 'btn-shine h-16 px-3 text-base font-extrabold sm:text-lg text-brand-700 shadow-2xl hover:scale-[1.02]')}>
+                  {star ? `Empezar gratis con ${p.name}` : `Probar ${p.name} gratis`}
+                </Link>
+                {p.trialDays > 0 && <p className={cn('relative mt-3 text-center text-xs', star ? 'text-brand-100' : 'text-ink-400')}>{p.trialDays} días de prueba gratis · sin tarjeta</p>}
+              </div>
             </div>
           );
         })}
       </div>
 
       {plans.length > 1 && (
-        <div className="mx-auto mt-12 max-w-4xl">
+        <div className="mx-auto mt-14 max-w-4xl">
           <button type="button" onClick={() => setMore((v) => !v)} aria-expanded={more} aria-controls="tabla-beneficios"
             className="mx-auto flex items-center gap-2 rounded-full bg-white px-6 py-3 font-display text-base font-bold text-brand-700 shadow-soft ring-1 ring-brand-200 transition hover:bg-brand-50">
             {more ? 'Ocultar la comparación' : 'Ver todos los beneficios y comparar planes'}

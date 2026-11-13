@@ -6,7 +6,25 @@
 html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
 body { @apply bg-white text-ink-900 antialiased font-sans; }
 :focus-visible { @apply outline-2 outline-offset-2 outline-brand-500; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .reveal { opacity: 1 !important; transform: none !important; }
+}
+
+/* Aparición al hacer scroll (ver components/marketing/motion.tsx) */
+.reveal { opacity: 0; transform: translateY(26px) scale(.985); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); will-change: opacity, transform; }
+.reveal-on { opacity: 1; transform: none; }
+
+/* Fondos y efectos del sitio comercial */
+.bg-grid { background-image: linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px); background-size: 44px 44px; mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 30%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 30%, transparent 75%); }
+.text-shine { background-image: linear-gradient(100deg, #a78bfa, #f0abfc, #fcd34d, #f0abfc, #a78bfa); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: gradient-x 7s linear infinite; }
+.btn-shine { position: relative; overflow: hidden; isolation: isolate; }
+.btn-shine::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.45) 50%, transparent 70%); transform: translateX(-120%); animation: shine 3.2s ease-in-out infinite; }
+.glow-conic { background: conic-gradient(from var(--ang, 0deg), #fcd34d, #f0abfc, #8677fb, #34d399, #fcd34d); filter: blur(14px); opacity: .8; animation: spin-ang 6s linear infinite; }
+@property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes spin-ang { to { --ang: 360deg; } }
+@keyframes gradient-x { to { background-position: -250% 0; } }
+@keyframes shine { 0%, 55% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
 
 @layer components {
   .container-x { @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8; }

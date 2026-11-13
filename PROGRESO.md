@@ -62,7 +62,12 @@ Comprobado a mano en el navegador (Chrome embebido), contra API y BD reales:
 - **PWA:** sólo `manifest` e ícono (se puede agregar a la pantalla de inicio). No hay *service worker*: no hay modo offline (fuera del MVP).
 - **Pasarela de pago:** fuera del MVP (pagos manuales con revisión del admin).
 - **Textos legales** (privacidad y términos): plantillas razonables, **deben revisarse con un asesor legal** antes de vender.
-- Marca provisional "ChecaFácil" configurable (`NEXT_PUBLIC_BRAND_NAME`, ajustes SaaS). Sin testimonios ni cifras inventadas.
+- Marca provisional "ChecaFácil" configurable (`NEXT_PUBLIC_BRAND_NAME`, ajustes SaaS). Sin testimonios ni cifras inventadas:
+  la sección de testimonios y el "Más de N negocios" sólo aparecen al llenar `apps/web/src/lib/testimonials.ts` con datos reales.
+- Sitio comercial rediseñado (13-nov-2026): plan más económico como protagonista, capturas reales del sistema en
+  `apps/web/public/capturas/` (cuenta demo), sección de la reforma LFT (registro electrónico de jornada, DOF 1-may-2026, exigible
+  1-ene-2027). Revisado a mano en escritorio (1366 px) y móvil (375 px) en modo desarrollo; **el texto legal de la reforma debe
+  validarlo un asesor** y no se ha vuelto a correr el build de producción.
 - Cambio de plan por el cliente: sólo lo hace el administrador SaaS.
 - Recuperación de contraseña de **empleados**: la gestiona el dueño reenviando la invitación (no hay "olvidé mi contraseña" de empleado).
 - Un usuario tiene un solo negocio activo por sesión (el modelo ya admite varios).
